@@ -14,3 +14,7 @@ Here are some ideas to get you started:
 - 😄 Pronouns: ...
 - ⚡ Fun fact: ...
 -->
+
+Note: Some of the repo has been sanitized for public consumption. 
+
+Stock Market DB project was designed to ingest bulk CSV from NASDAQ Data Link, import into a local DB, migrated to Azure SQL for front-end consumption. 
