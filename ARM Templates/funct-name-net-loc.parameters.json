@@ -1,0 +1,478 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "sntInfo": {
+      "value": [
+        {
+          "name": "CMN-SNT-01",
+          "addressPrefix": "PLACE_HOLDER",
+          "udr": "CMN-UDR-01",
+          "nsg": "CMN-NSG-01"
+        }
+      ]
+    },
+    "sntInfoNative": {
+      "value": [
+        {
+          "name": "GatewaySubnet",
+          "addressPrefix": "PLACE_HOLDER"
+        }
+      ]
+    },
+    "vntNetworkOctets": {
+      "value": [
+        "PLACE_HOLDER"
+      ]
+    },
+    "deployVntGwy": {
+      "value": false
+    },
+    "securityRules": {
+      "value": {
+        "default": [
+          {
+            "name": "Allow-APP-In",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefixes": [ "PLACE_HOLDER" ],
+              "destinationAddressPrefixes": [ "PLACE_HOLDER" ],
+              "access": "Allow",
+              "priority": 3000,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "Allow-APP-Out",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefixes": [ "PLACE_HOLDER" ],
+              "destinationAddressPrefixes": [ "PLACE_HOLDER" ],
+              "access": "Allow",
+              "priority": 3000,
+              "direction": "Outbound"
+            }
+          },
+          {
+            "name": "Allow-CMNSVC-In",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefixes": [
+                "172.16.0.0/12"
+              ],
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Allow",
+              "priority": 3010,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "Allow-CMNSVC-Out",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefixes": [
+                "172.16.0.0/12"
+              ],
+              "access": "Allow",
+              "priority": 3010,
+              "direction": "Outbound"
+            }
+          }
+        ],
+        "Tier2": [
+          {
+            "name": "Allow-TIER2-In",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefixes": [
+                "PLACE_HOLDER"
+              ],
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Allow",
+              "priority": 3100,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "Allow-TIER2-Out",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefixes": [
+                "PLACE_HOLDER"
+              ],
+              "access": "Allow",
+              "priority": 3100,
+              "direction": "Outbound"
+            }
+          }
+        ],
+        "GCDS": [
+          {
+            "name": "Allow-GCDS-In",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRanges": [ "443" ],
+              "sourceAddressPrefixes": [
+                "214.24.252.0/24",
+                "214.24.253.0/24",
+                "214.48.0.0/16",
+                "215.65.60.0/24",
+                "215.65.65.0/24",
+                "215.65.67.0/24"
+              ],
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Allow",
+              "priority": 3200,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "Allow-GCDS-Out",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRanges": [ "443" ],
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefixes": [
+                "214.24.252.0/24",
+                "214.24.253.0/24",
+                "214.48.0.0/16",
+                "215.65.60.0/24",
+                "215.65.65.0/24",
+                "215.65.67.0/24"
+              ],
+              "access": "Allow",
+              "priority": 3200,
+              "direction": "Outbound"
+            }
+          }
+        ],
+        "Internet": [
+          {
+            "name": "Allow-INTERNET-Out",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRanges": [ "80", "443", "445", "1433", "1688", "3260", "11000-11999", "14000-14999" ],
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefix": "Internet",
+              "access": "Allow",
+              "priority": 4000,
+              "direction": "Outbound"
+            }
+          }
+        ],
+        "ASE": [
+          {
+            "name": "Allow-ASE-In",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRanges": [ "454", "455", "16001" ],
+              "sourceAddressPrefixes": [ "23.97.29.209", "13.72.53.37", "13.72.180.105", "23.97.0.17", "23.97.16.184" ],
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Allow",
+              "priority": 4001,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "Allow-ASE-Out",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRanges": [ "53", "80", "443", "445", "1433", "1688", "11000-11999", "14000-14999" ],
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 4001,
+              "direction": "Outbound"
+            }
+          },
+          {
+            "name": "Allow-All-ASE-Out",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Allow",
+              "priority": 4002,
+              "direction": "Outbound"
+            }
+          }
+        ],
+        "LDB": [
+          {
+            "name": "Allow-LDB-In",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "AzureLoadBalancer",
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Allow",
+              "priority": 4002,
+              "direction": "Inbound"
+            }
+          }
+        ],
+        "DenyAll": [
+          {
+            "name": "Deny-ALL-In",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Deny",
+              "priority": 4096,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "Deny-ALL-Out",
+            "properties": {
+              "description": "",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Deny",
+              "priority": 4096,
+              "direction": "Outbound"
+            }
+          }
+        ]
+      }
+    },
+    "udrRoutes": {
+      "value": {
+        "default": [
+          {
+            "addressPrefix": "10.0.0.0/8",
+            "nextHopType": "VnetLocal"
+          },
+          {
+            "addressPrefix": "172.16.0.0/12",
+            "nextHopType": "VnetLocal"
+          },
+          {
+            "addressPrefix": "0.0.0.0/0",
+            "nextHopType": "VirtualAppliance",
+            "nextHopIpAddress": "PLACE_HOLDER"
+          }
+        ],
+        "ASE": [
+          {
+            "addressPrefix": "23.97.29.209/32",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "13.72.53.37/32",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "13.72.180.105/32",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "23.97.0.17/32",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "23.97.16.184/32",
+            "nextHopType": "Internet"
+          }
+        ],
+        "GCDS": [
+          {
+            "addressPrefix": "214.24.252.0/23",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "214.48.0.0/16",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "215.65.60.0/24",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "215.65.65.0/24",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "215.65.67.0/24",
+            "nextHopType": "Internet"
+          }
+        ],
+        "SvcEndpoint": [
+          {
+            "addressPrefix": "13.72.43.16/28",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "13.72.43.32/28",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "23.97.32.64/26",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.126.192.192/26",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.126.224.0/26",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.126.224.192/26",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.127.116.0/26",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.227.72.32/27",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.227.128.16/28",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.227.128.32/28",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "13.72.168.64/27",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "23.97.40.64/26",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.126.224.128/26",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.127.116.64/26",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.127.116.128/25",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.126.192.128/26",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.238.120.16/28",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.238.120.32/28",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.238.120.64/27",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.238.176.16/28",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.238.176.32/28",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.239.176.0/25",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "13.72.48.140/32",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "13.72.52.5/32",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.127.40.0/27",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.127.41.0/27",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.227.161.29/32",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.227.174.155/32",
+            "nextHopType": "Internet"
+          },
+          {
+            "addressPrefix": "52.227.180.171/32",
+            "nextHopType": "Internet"
+          }
+        ]
+      }
+    },
+    "tier2": {
+      "value": 1
+    },
+    "deployedResources": {
+      "value": {
+        "locks": false,
+        "nwr": true,
+        "udr": true,
+        "vnt": true,
+        "snt": true,
+        "nsg": true,
+        "pip": false,
+        "prg": true
+      }
+    }
+  }
+}

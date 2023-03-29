@@ -1,0 +1,650 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "kekUrl": {
+      "type": "securestring"
+    },
+    "dskEncryptKeyUrl": {
+      "type": "securestring"
+    },
+    "aadClientID": {
+      "type": "securestring"
+    },
+    "aadClientSecret": {
+      "type": "securestring"
+    },
+    "svc": {
+      "type": "string",
+      "defaultValue": "BST"
+    },
+    "vmCount": {
+      "type": "int",
+      "defaultValue": 2
+    },
+    "faultDomainCount": {
+      "type": "string",
+      "defaultValue": "2"
+    },
+    "updateDomainCount": {
+      "type": "string",
+      "defaultValue": "2"
+    },
+    "stgType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Standard_ZRS",
+        "Premium_LRS"
+      ]
+    },
+    "diagStgType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Standard_ZRS",
+        "Premium_LRS"
+      ]
+    },
+    "dataDskSize": {
+      "type": "int",
+      "defaultValue": 1023
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_A2m_v2"
+    },
+    "vmUserName": {
+      "type": "securestring"
+    },
+    "vmPassword": {
+      "type": "securestring"
+    },
+    "imagePublisher": {
+      "type": "string",
+      "defaultValue": "MicrosoftWindowsServer"
+    },
+    "imageOffer": {
+      "type": "string",
+      "defaultValue": "WindowsServer"
+    },
+    "imageSku": {
+      "type": "string",
+      "defaultValue": "2016-Datacenter"
+    },
+    "mainParameters": {
+      "type": "object"
+    },
+    "ipAddresses": {
+      "type": "object"
+    },
+    "secrets": {
+      "type": "object"
+    },
+    "deployedResources": {
+      "type": "object",
+      "defaultValue": {
+        "locks": false,
+        "avs": true,
+        "stg": true,
+        "nic": true,
+        "vm": true,
+        "bgInfo": true,
+        "oms": true,
+        "netwatch": true,
+        "diag": true,
+        "script": true,
+        "tmds": true,
+        "encrypt": true,
+        "update": true,
+        "backup": true
+      }
+    }
+  },
+  "variables": {
+    "stgNamePrefix": "[toLower(concat(parameters('mainParameters').region,parameters('mainParameters').application,parameters('mainParameters').environment,parameters('mainParameters').impactLevel,parameters('svc'),'STG'))]",
+    "diagStgNamePrefix": "[toLower(concat(parameters('mainParameters').region,parameters('mainParameters').application,parameters('mainParameters').environment,parameters('mainParameters').impactLevel,parameters('svc'),'DIAGSTG'))]",
+    "wadlogs": "<WadCfg> <DiagnosticMonitorConfiguration overallQuotaInMB=\"4096\" xmlns=\"http://schemas.microsoft.com/ServiceHosting/2010/10/DiagnosticsConfiguration\"> <DiagnosticInfrastructureLogs scheduledTransferLogLevelFilter=\"Error\"/> <WindowsEventLog scheduledTransferPeriod=\"PT1M\" > <DataSource name=\"Application!*[System[(Level = 1 or Level = 2)]]\" /> <DataSource name=\"Security!*[System[(Level = 1 or Level = 2)]]\" /> <DataSource name=\"System!*[System[(Level = 1 or Level = 2)]]\" /></WindowsEventLog>",
+    "wadperfcounters1": "<PerformanceCounters scheduledTransferPeriod=\"PT1M\"><PerformanceCounterConfiguration counterSpecifier=\"\\Processor(_Total)\\% Processor Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"CPU utilization\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Processor(_Total)\\% Privileged Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"CPU privileged time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Processor(_Total)\\% User Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"CPU user time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Processor Information(_Total)\\Processor Frequency\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"CPU frequency\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\System\\Processes\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"Processes\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Process(_Total)\\Thread Count\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"Threads\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Process(_Total)\\Handle Count\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"Handles\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\% Committed Bytes In Use\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Memory usage\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\Available Bytes\" sampleRate=\"PT15S\" unit=\"Bytes\"><annotation displayName=\"Memory available\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\Committed Bytes\" sampleRate=\"PT15S\" unit=\"Bytes\"><annotation displayName=\"Memory committed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\Commit Limit\" sampleRate=\"PT15S\" unit=\"Bytes\"><annotation displayName=\"Memory commit limit\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\% Disk Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk active time\" locale=\"en-us\"/></PerformanceCounterConfiguration>",
+    "wadperfcounters2": "<PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\% Disk Read Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk active read time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\% Disk Write Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk active write time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Transfers/sec\" sampleRate=\"PT15S\" unit=\"CountPerSecond\"><annotation displayName=\"Disk operations\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Reads/sec\" sampleRate=\"PT15S\" unit=\"CountPerSecond\"><annotation displayName=\"Disk read operations\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Writes/sec\" sampleRate=\"PT15S\" unit=\"CountPerSecond\"><annotation displayName=\"Disk write operations\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Bytes/sec\" sampleRate=\"PT15S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec\" sampleRate=\"PT15S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk read speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec\" sampleRate=\"PT15S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk write speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\LogicalDisk(_Total)\\% Free Space\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk free space (percentage)\" locale=\"en-us\"/></PerformanceCounterConfiguration></PerformanceCounters>",
+    "wadcfgxstart": "[concat(variables('wadlogs'), variables('wadperfcounters1'), variables('wadperfcounters2'), '<Metrics resourceId=\"')]",
+    "wadmetricsresourceid": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name , '/providers/', 'Microsoft.Compute/virtualMachines/')]",
+    "wadcfgxend": "\"><MetricAggregation scheduledTransferPeriod=\"PT1H\"/><MetricAggregation scheduledTransferPeriod=\"PT1M\"/></Metrics></DiagnosticMonitorConfiguration></WadCfg>"
+  },
+  "resources": [
+    //AVS
+    {
+      "condition": "[parameters('deployedResources').avs]",
+      "name": "[concat(parameters('mainParameters').commonNamePrefix,parameters('svc'),'-AVS-01')]",
+      "type": "Microsoft.Compute/availabilitySets",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-03-30",
+      "tags": "[parameters('mainParameters').tags]",
+      "copy": {
+        "name": "avsLoop",
+        "count": 1
+      },
+      "properties": {
+        "platformFaultDomainCount": "[parameters('faultDomainCount')]",
+        "platformUpdateDomainCount": "[parameters('updateDomainCount')]"
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',parameters('mainParameters').commonNamePrefix,parameters('svc'),'-AVS-01','-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[concat(parameters('mainParameters').commonNamePrefix,parameters('svc'),'-AVS-01')]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //STG
+    {
+      "condition": "[parameters('deployedResources').stg]",
+      "name": "[concat(variables('stgNamePrefix'),copyIndex(1))]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2018-07-01",
+      "tags": "[parameters('mainParameters').tags]",
+      "copy": {
+        "name": "stgLoop",
+        "count": "[parameters('vmCount')]"
+      },
+      "sku": {
+        "name": "[parameters('stgType')]"
+      },
+      "kind": "Storage",
+      "properties": {
+        "encryption": {
+          "services": {
+            "blob": {
+              "enabled": true
+            },
+            "file": {
+              "enabled": true
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        },
+        "supportsHttpsTrafficOnly": true,
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Deny",
+          "ipRules": [],
+          "virtualNetworkRules": []
+        }
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('stgNamePrefix'),copyIndex(1),'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[concat(variables('stgNamePrefix'),copyIndex(1))]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    {
+      "condition": "[parameters('deployedResources').stg]",
+      "name": "[concat(variables('diagStgNamePrefix'),copyIndex(1))]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2018-07-01",
+      "tags": "[parameters('mainParameters').tags]",
+      "copy": {
+        "name": "diagStgLoop",
+        "count": "[parameters('vmCount')]"
+      },
+      "sku": {
+        "name": "[parameters('diagStgType')]"
+      },
+      "kind": "Storage",
+      "properties": {
+        "encryption": {
+          "services": {
+            "blob": {
+              "enabled": true
+            },
+            "file": {
+              "enabled": true
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        },
+        "supportsHttpsTrafficOnly": true,
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Deny",
+          "ipRules": [],
+          "virtualNetworkRules": []
+        }
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('diagStgNamePrefix'),copyIndex(1),'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[concat(variables('diagStgNamePrefix'),copyIndex(1))]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //NIC
+    {
+      "condition": "[parameters('deployedResources').nic]",
+      "name": "[concat(parameters('mainParameters').commonNamePrefix,parameters('svc'),'-NIC-',copyIndex(1))]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-09-01",
+      "tags": "[parameters('mainParameters').tags]",
+      "copy": {
+        "name": "nicLoop",
+        "count": "[parameters('vmCount')]"
+      },
+      "dependsOn": [],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[parameters('ipAddresses').bst.vms[copyIndex()]]",
+              "subnet": {
+                "id": "[parameters('mainParameters').cmnSntId]"
+              }
+            }
+          }
+        ]
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',parameters('mainParameters').commonNamePrefix,parameters('svc'),'-NIC-',copyIndex(1),'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[concat(parameters('mainParameters').commonNamePrefix,parameters('svc'),'-NIC-',copyIndex(1))]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //VM
+    {
+      "condition": "[parameters('deployedResources').vm]",
+      "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-03-30",
+      "tags": "[parameters('mainParameters').tags]",
+      "copy": {
+        "name": "vmLoop",
+        "count": "[parameters('vmCount')]"
+      },
+      "dependsOn": [
+        "avsLoop",
+        "stgLoop",
+        "diagStgLoop",
+        "nicLoop"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets',concat(parameters('mainParameters').commonNamePrefix,parameters('svc'),'-AVS-01'))]"
+        },
+        "osProfile": {
+          "computername": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]",
+          "adminUsername": "[parameters('vmUserName')]",
+          "adminPassword": "[parameters('vmPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[parameters('imagePublisher')]",
+            "offer": "[parameters('imageOffer')]",
+            "sku": "[parameters('imageSku')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-OS-DSK')]",
+            "vhd": {
+              "uri": "[concat('https://',variables('stgNamePrefix'),copyIndex(1),parameters('mainParameters').stgDomainName,'/vhd/',parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-OS-DSK.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          },
+          "dataDisks": [
+            {
+              "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-DATA-DSK')]",
+              "vhd": {
+                "uri": "[concat('https://',variables('stgNamePrefix'),copyIndex(1),parameters('mainParameters').stgDomainName,'/vhd/',parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-DATA-DSK.vhd')]"
+              },
+              "caching": "None",
+              "diskSizeGB": "[parameters('dataDskSize')]",
+              "lun": 0,
+              "createOption": "Empty"
+            }
+          ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(parameters('mainParameters').commonNamePrefix,parameters('svc'),'-NIC-',copyIndex(1)))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[concat('https://',variables('diagStgNamePrefix'),copyIndex(1),parameters('mainParameters').stgDomainName)]"
+          }
+        }
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        },
+        {
+          "condition": "[parameters('deployedResources').bgInfo]",
+          "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-BGInfo')]",
+          "type": "extensions",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "2015-06-15",
+          "dependsOn": [
+            "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Compute",
+            "type": "BGInfo",
+            "typeHandlerVersion": "2.1",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "Properties": [
+              ]
+            }
+          }
+        },
+        {
+          "condition": "[parameters('deployedResources').oms]",
+          "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-OMS')]",
+          "type": "extensions",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "2017-03-30",
+          "dependsOn": [
+            "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.EnterpriseCloud.Monitoring",
+            "type": "MicrosoftMonitoringAgent",
+            "typeHandlerVersion": "1.0",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "workspaceId": "[reference(parameters('mainParameters').cmnSvcOmsId,parameters('mainParameters').omsAPIVersion).customerId]"
+            },
+            "protectedSettings": {
+              "workspaceKey": "[listKeys(parameters('mainParameters').cmnSvcOmsId,parameters('mainParameters').omsAPIVersion).primarySharedKey]"
+            }
+          }
+        },
+        {
+          "condition": "[parameters('deployedResources').netwatch]",
+          "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-NETWATCH')]",
+          "type": "extensions",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "2017-03-30",
+          "dependsOn": [
+            "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Azure.NetworkWatcher",
+            "type": "NetworkWatcherAgentWindows",
+            "typeHandlerVersion": "1.4",
+            "autoUpgradeMinorVersion": true
+          }
+        },
+        {
+          "condition": "[parameters('deployedResources').diag]",
+          "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-DIAG')]",
+          "type": "extensions",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "2017-03-30",
+          "dependsOn": [
+            "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Azure.Diagnostics",
+            "type": "IaaSDiagnostics",
+            "typeHandlerVersion": "1.5",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "storageAccount": "[concat(variables('diagStgNamePrefix'),copyIndex(1))]",
+              "xmlCfg": "[base64(concat(variables('wadcfgxstart'), variables('wadmetricsresourceid'), parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix, variables('wadcfgxend')))]"
+            },
+            "protectedSettings": {
+              "storageAccountName": "[concat(variables('diagStgNamePrefix'),copyIndex(1))]",
+              "storageAccountKey": "[listkeys(resourceId('Microsoft.Storage/storageAccounts',concat(variables('diagStgNamePrefix'),copyIndex(1))), '2017-06-01').keys[0].value]",
+              "storageAccountEndPoint": "[concat('https://',skip(parameters('mainParameters').stgDomainName,6))]"
+            }
+          }
+        },
+        {
+          "condition": "[parameters('deployedResources').script]",
+          "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-SCRIPT')]",
+          "type": "extensions",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "2017-03-30",
+          "dependsOn": [
+            "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]",
+            "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-DIAG')]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Compute",
+            "type": "CustomScriptExtension",
+            "typeHandlerVersion": "1.8",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "fileUris": [
+                "[concat(parameters('mainParameters').scriptsUriPrefix,parameters('mainParameters').scriptsConfigurationPrefix,'.ps1',parameters('mainParameters').scriptsSasToken)]"
+              ]
+            },
+            "protectedSettings": {
+              "commandToExecute": "[concat('powershell.exe -ExecutionPolicy Unrestricted -File ',parameters('mainParameters').scriptsConfigurationPrefix,'.ps1')]"
+            }
+          }
+        },
+        {
+          "condition": "[parameters('deployedResources').encrypt]",
+          "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-ENCRYPT')]",
+          "type": "extensions",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "2017-03-30",
+          "dependsOn": [
+            "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]",
+            "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-SCRIPT')]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Azure.Security",
+            "type": "AzureDiskEncryption",
+            "typeHandlerVersion": "1.1",
+            "autoUpgradeMinorVersion": true,
+            "forceUpdateTag": "1.0",
+            "settings": {
+              "AADClientID": "[parameters('aadClientID')]",
+              "KeyVaultURL": "[parameters('mainParameters').kvtUrl]",
+              "KeyEncryptionKeyURL": "[parameters('kekUrl')]",
+              "KeyEncryptionAlgorithm": "[parameters('mainParameters').dskEncryptAlgorithm]",
+              "VolumeType": "[parameters('mainParameters').dskEncryptVolumeType]",
+              "EncryptionOperation": "[parameters('mainParameters').dskEncryptOperation]"
+            },
+            "protectedSettings": {
+              "AADClientSecret": "[parameters('aadClientSecret')]"
+            }
+          }
+        }
+      ]
+    },
+    //UPDATE
+    {
+      "condition": "[parameters('deployedResources').update]",
+      "name": "[concat('linkedTemplate',parameters('svc'),copyIndex(1),'-UPDATE')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[parameters('mainParameters').linkedTemplateApiVersion]",
+      "copy": {
+        "name": "vmUpdateLoop",
+        "count": "[parameters('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines/extensions',concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix),concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-ENCRYPT'))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('mainParameters').templateUriPrefix,'app-vm-update.json',parameters('mainParameters').templatesSasToken)]",
+          "contentVersion": "1.0.0.1"
+        },
+        "parameters": {
+          "kekUrl": {
+            "reference": {
+              "keyVault": {
+                "id": "[parameters('mainParameters').kvtId]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.kekUrl]"
+            }
+          },
+          "kvtSecretUrl": {
+            "value": "[if(parameters('deployedResources').update,reference(resourceId('Microsoft.Compute/virtualMachines/extensions',concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix),concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-ENCRYPT')),'2017-03-30').instanceView.statuses[0].message,json('null'))]"
+          },
+          "vmName": {
+            "value": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]"
+          },
+          "mainParameters": {
+            "value": "[parameters('mainParameters')]"
+          }
+        }
+      }
+    },
+    //BACKUP
+    {
+      "condition": "[parameters('deployedResources').backup]",
+      "name": "[concat('linkedTemplate',parameters('svc'),copyIndex(1),'-BACKUP')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2017-05-10",
+      "resourceGroup": "[parameters('mainParameters').corRgpName]",
+      "copy": {
+        "name": "vmBackupLoop",
+        "count": "[parameters('vmCount')]"
+      },
+      "dependsOn": [
+        "[if(parameters('deployedResources').update,'vmUpdateLoop',concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('mainParameters').templateUriPrefix,'app-vm-backup.json',parameters('mainParameters').templatesSasToken)]",
+          "contentVersion": "1.0.0.1"
+        },
+        "parameters": {
+          "vmName": {
+            "value": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]"
+          },
+          "resourceGroupName": {
+            "value": "[resourceGroup().name]"
+          },
+          "backupPolicyId": {
+            "value": "[concat(parameters('mainParameters').rcvId,'/backupPolicies/',parameters('mainParameters').commonNamePrefix,parameters('svc'),'-BKP-01')]"
+          },
+          "mainParameters": {
+            "value": "[parameters('mainParameters')]"
+          }
+        }
+      }
+    },
+    //TMDS
+    {
+      "condition": "[parameters('deployedResources').tmds]",
+      "name": "[concat('linkedTemplate',parameters('svc'),copyIndex(1),'-TMDS')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[parameters('mainParameters').linkedTemplateApiVersion]",
+      "copy": {
+        "name": "vmTmdsLoop",
+        "count": "[parameters('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines/extensions',concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix),concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-SCRIPT'))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('mainParameters').templateUriPrefix,'app-vm-tmds.json',parameters('mainParameters').templatesSasToken)]",
+          "contentVersion": "1.0.0.1"
+        },
+        "parameters": {
+          "vmName": {
+            "value": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]"
+          },
+          "os": {
+            "value": "windows"
+          },
+          "extensionName": {
+            "value": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-SCRIPT')]"
+          },
+          "scriptsUriPrefix": {
+            "value": "[parameters('mainParameters').scriptsUriPrefix]"
+          },
+          "scriptsTmdsPrefix": {
+            "value": "[concat(parameters('mainParameters').scriptsConfigurationPrefix,'-tmds')]"
+          },
+          "scriptsSasToken": {
+            "value": "[parameters('mainParameters').scriptsSasToken]"
+          },
+          "baseUrl": {
+            "value": "[parameters('mainParameters').tmds.baseUrl]"
+          },
+          "heartbeatUrl": {
+            "value": "[parameters('mainParameters').tmds.heartbeatUrl]"
+          },
+          "policy": {
+            "value": "[parameters('mainParameters').tmds.policy]"
+          },
+          "group": {
+            "value": "[parameters('mainParameters').tmds.group]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

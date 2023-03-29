@@ -1,0 +1,260 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "mainParameters": {
+      "type": "object"
+    },
+    "cmnsvcSubscriptionId": {
+      "type": "string"
+    },
+    "regionAlt": {
+      "type": "string",
+      "defaultValue": "_PLACEHOLDER_"
+    },
+    "regionNameAlt": {
+      "type": "string",
+      "defaultValue": "_PLACEHOLDER_"
+    },
+    "regionSec": {
+      "type": "string",
+      "defaultValue": "_PLACEHOLDER_"
+    },
+    "regionNameSec": {
+      "type": "string",
+      "defaultValue": "_PLACEHOLDER_"
+    },
+    "deployedResources": {
+      "type": "object",
+      "defaultValue": {
+        "locks": false,
+        "prg": true,
+        "prgRemote": true,
+        "prgAlt": false,
+        "prgRemoteAlt": false,
+        "prgSec": false,
+        "prgRemoteSec": false
+      }
+    }
+  },
+  "variables": {
+    "cmnSvcNamePrefix": "[toUpper(concat(parameters('mainParameters').cloudServiceProvider,'-',parameters('mainParameters').region,'-',parameters('mainParameters').enterprise,'-',parameters('mainParameters').department,'-',parameters('mainParameters').account,'-',parameters('mainParameters').cmnsvcFunctionalArea,'-',parameters('mainParameters').environment,'-',parameters('mainParameters').impactLevel,'-'))]",
+    "cmnSvcNetRgpName": "[toUpper(concat(variables('cmnSvcNamePrefix'),'NET-RGP-01'))]",
+    "cmnSvcTier2VntName": "[toUpper(concat(variables('cmnSvcNamePrefix'),'TIER2-VNT-',if(greater(parameters('mainParameters').tier2,9),parameters('mainParameters').tier2,concat('0',parameters('mainParameters').tier2))))]",
+    "cmnSvcTier2VntId": "[resourceId(parameters('cmnsvcSubscriptionId'),variables('cmnSvcNetRgpName'),'Microsoft.Network/virtualNetworks',variables('cmnSvcTier2VntName'))]",
+    "cmnSvcNamePrefixAlt": "[toUpper(concat(parameters('mainParameters').cloudServiceProvider,'-',parameters('regionAlt'),'-',parameters('mainParameters').enterprise,'-',parameters('mainParameters').department,'-',parameters('mainParameters').account,'-',parameters('mainParameters').cmnsvcFunctionalArea,'-',parameters('mainParameters').environment,'-',parameters('mainParameters').impactLevel,'-'))]",
+    "cmnSvcNetRgpNameAlt": "[toUpper(concat(variables('cmnSvcNamePrefixAlt'),'NET-RGP-01'))]",
+    "cmnSvcTier2VntNameAlt": "[toUpper(concat(variables('cmnSvcNamePrefixAlt'),'TIER2-VNT-',if(greater(parameters('mainParameters').tier2,9),parameters('mainParameters').tier2,concat('0',parameters('mainParameters').tier2))))]",
+    "cmnSvcTier2VntIdAlt": "[resourceId(parameters('cmnsvcSubscriptionId'),variables('cmnSvcNetRgpNameAlt'),'Microsoft.Network/virtualNetworks',variables('cmnSvcTier2VntNameAlt'))]",
+    "namePrefixSec": "[toUpper(concat(parameters('mainParameters').cloudServiceProvider,'-',parameters('regionSec'),'-',parameters('mainParameters').enterprise,'-',parameters('mainParameters').department,'-',parameters('mainParameters').account,'-',parameters('mainParameters').functionalArea,'-',parameters('mainParameters').environment,'-',parameters('mainParameters').impactLevel,'-',parameters('mainParameters').application,'-'))]",
+    "netRgpNameSec": "[toUpper(concat(variables('namePrefixSec'),'NET-RGP-01'))]",
+    "vntLocalName": "[concat(parameters('mainParameters').commonNamePrefix,'VNT-01')]",
+    "vntLocalId": "[resourceId('Microsoft.Network/virtualNetworks',variables('vntLocalName'))]",
+    "vntSecName": "[concat(variables('namePrefixSec'),'VNT-01')]",
+    "vntSecId": "[resourceId(variables('netRgpNameSec'),'Microsoft.Network/virtualNetworks',variables('vntSecName'))]",
+    "prgLocalName": "[toUpper(concat(parameters('mainParameters').cloudServiceProvider,'-',parameters('mainParameters').region,'-',parameters('mainParameters').enterprise,'-',parameters('mainParameters').department,'-',parameters('mainParameters').account,'-',parameters('mainParameters').application,'-',parameters('mainParameters').environment,'-',parameters('mainParameters').impactLevel,'-',parameters('mainParameters').functionalArea,'-PRG-01'))]",
+    "prgTier2Name": "[toUpper(concat(parameters('mainParameters').cloudServiceProvider,'-',parameters('mainParameters').region,'-',parameters('mainParameters').enterprise,'-',parameters('mainParameters').department,'-',parameters('mainParameters').account,'-',parameters('mainParameters').functionalArea,'-',parameters('mainParameters').environment,'-',parameters('mainParameters').impactLevel,'-',parameters('mainParameters').application,'-PRG-01'))]",
+    "prgLocalNameAlt": "[toUpper(concat(parameters('mainParameters').cloudServiceProvider,'-',parameters('mainParameters').region,'-',parameters('mainParameters').enterprise,'-',parameters('mainParameters').department,'-',parameters('mainParameters').account,'-',parameters('mainParameters').application,'-',parameters('mainParameters').environment,'-',parameters('mainParameters').impactLevel,'-',parameters('mainParameters').functionalArea,'-ALT-PRG-01'))]",
+    "prgTier2NameAlt": "[toUpper(concat(parameters('mainParameters').cloudServiceProvider,'-',parameters('regionAlt'),'-',parameters('mainParameters').enterprise,'-',parameters('mainParameters').department,'-',parameters('mainParameters').account,'-',parameters('mainParameters').functionalArea,'-',parameters('mainParameters').environment,'-',parameters('mainParameters').impactLevel,'-',parameters('mainParameters').application,'-ALT-PRG-01'))]",
+    "prgLocalNameSec": "[toUpper(concat(parameters('mainParameters').commonNamePrefix,'SEC-PRG-01'))]",
+    "prgSecName": "[toUpper(concat(variables('namePrefixSec'),'SEC-PRG-01'))]"
+  },
+  "resources": [
+    //PRG
+    {
+      "condition": "[parameters('deployedResources').prg]",
+      "name": "[concat(variables('vntLocalName'),'/',variables('prgLocalName'))]",
+      "apiVersion": "2018-02-01",
+      "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "allowVirtualNetworkAccess": true,
+        "allowForwardedTraffic": true,
+        "allowGatewayTransit": false,
+        "useRemoteGateways": true,
+        "remoteVirtualNetwork": {
+          "id": "[variables('cmnSvcTier2VntId')]"
+        }
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('prgLocalName'),'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[variables('prgLocalName')]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //PRG ALT
+    {
+      "condition": "[parameters('deployedResources').prgAlt]",
+      "name": "[concat(variables('vntLocalName'),'/',variables('prgLocalNameAlt'))]",
+      "apiVersion": "2018-02-01",
+      "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "allowVirtualNetworkAccess": true,
+        "allowForwardedTraffic": true,
+        "allowGatewayTransit": false,
+        "useRemoteGateways": true,
+        "remoteVirtualNetwork": {
+          "id": "[variables('cmnSvcTier2VntIdAlt')]"
+        }
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('prgLocalNameAlt'),'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[variables('prgLocalNameAlt')]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //PRG SEC
+    {
+      "condition": "[parameters('deployedResources').prgSec]",
+      "name": "[concat(variables('vntLocalName'),'/',variables('prgLocalNameSec'))]",
+      "apiVersion": "2018-02-01",
+      "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "allowVirtualNetworkAccess": true,
+        "allowForwardedTraffic": true,
+        "allowGatewayTransit": false,
+        "useRemoteGateways": false,
+        "remoteVirtualNetwork": {
+          "id": "[variables('vntSecId')]"
+        }
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('prgLocalNameSec'),'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[variables('prgLocalNameSec')]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //PRG REMOTE
+    {
+      "condition": "[parameters('deployedResources').prgRemote]",
+      "name": "linkedTemplatePRGRemote",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[parameters('mainParameters').linkedTemplateApiVersion]",
+      "subscriptionId": "[parameters('cmnsvcSubscriptionId')]",
+      "resourceGroup": "[variables('cmnSvcNetRgpName')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            //PRG
+            {
+              "name": "[concat(variables('cmnSvcTier2VntName'),'/',variables('prgTier2Name'))]",
+              "apiVersion": "2018-02-01",
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "location": "[resourceGroup().location]",
+              "properties": {
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": true,
+                "useRemoteGateways": false,
+                "remoteVirtualNetwork": {
+                  "id": "[variables('vntLocalId')]"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    //PRG REMOTE ALT
+    {
+      "condition": "[parameters('deployedResources').prgRemoteAlt]",
+      "name": "linkedTemplatePRGRemoteALT",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[parameters('mainParameters').linkedTemplateApiVersion]",
+      "subscriptionId": "[parameters('cmnsvcSubscriptionId')]",
+      "resourceGroup": "[variables('cmnSvcNetRgpNameAlt')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            //PRG
+            {
+              "name": "[concat(variables('cmnSvcTier2VntNameAlt'),'/',variables('prgTier2NameAlt'))]",
+              "apiVersion": "2018-02-01",
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "location": "[parameters('regionNameAlt')]",
+              "properties": {
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": true,
+                "useRemoteGateways": false,
+                "remoteVirtualNetwork": {
+                  "id": "[variables('vntLocalId')]"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    //PRG REMOTE SEC
+    {
+      "condition": "[parameters('deployedResources').prgRemoteSec]",
+      "name": "linkedTemplatePRGRemoteSEC",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[parameters('mainParameters').linkedTemplateApiVersion]",
+      "subscriptionId": "[subscription().subscriptionId]",
+      "resourceGroup": "[variables('netRgpNameSec')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            //PRG
+            {
+              "name": "[concat(variables('vntSecName'),'/',variables('prgSecName'))]",
+              "apiVersion": "2018-02-01",
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "location": "[parameters('regionNameSec')]",
+              "properties": {
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false,
+                "remoteVirtualNetwork": {
+                  "id": "[variables('vntLocalId')]"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

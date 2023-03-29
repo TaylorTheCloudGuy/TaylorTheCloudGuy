@@ -1,0 +1,121 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "vmName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of virtual machine"
+      }
+    },
+    "os": {
+      "type": "string",
+      "allowedValues": [ "windows", "linux" ],
+      "metadata": {
+        "description": "Target Operating System type for virtual machine"
+      }
+    },
+    "extensionName": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource name of custom script extension, as seen in Azure Portal if already provisioned"
+      }
+    },
+    "scriptsUriPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "URI of blob container containing TMDS script. For example, https://<yourStorageAccountName>.blob.core.usgovcloudapi.net/<yourContainer>/"
+      }
+    },
+    "scriptsTmdsPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of TMDS script w/o file extension. For example, tmds"
+      }
+    },
+    "scriptsSasToken": {
+      "type": "string",
+      "metadata": {
+        "description": "SAS token that grants restricted access rights to Azure blob storage container where TMDS script resides"
+      }
+    },
+    "baseUrl": {
+      "type": "string",
+      "allowedValues": [
+        "https://172.23.0.9:443/",
+        "https://172.23.1.9:443/",
+        "https://172.23.2.9:443/"
+      ],
+      "metadata": {
+        "description": "URL of TMDS portal per environment"
+      }
+    },
+    "heartbeatUrl": {
+      "type": "string",
+      "allowedValues": [
+        "dsm://172.23.0.8:4120/",
+        "dsm://172.23.1.8:4120/",
+        "dsm://172.23.2.8:4120/"
+      ],
+      "metadata": {
+        "description": "URI TMDS agent sends heartbeat communication to"
+      }
+    },
+    "policy": {
+      "type": "string",
+      "defaultValue": "'Base Policy'",
+      "metadata": {
+        "description": "Name of TMDS Policy"
+      }
+    },
+    "group": {
+      "type": "string",
+      "defaultValue": "CMNSVC",
+      "metadata": {
+        "description": "Name of TMDS Computer Group"
+      }
+    }
+  },
+  "variables": {
+    "extensionName": "[concat(parameters('vmName'),'/',parameters('extensionName'))]",
+    "extension": {
+      "windows": {
+        "publisher": "Microsoft.Compute",
+        "type": "CustomScriptExtension",
+        "typeHandlerVersion": "1.9",
+        "fileUris": [ "[concat(parameters('scriptsUriPrefix'),parameters('scriptsTmdsPrefix'),'.ps1',parameters('scriptsSasToken'))]" ],
+        "commandToExecute": "[concat('powershell.exe -ExecutionPolicy Unrestricted -File ',parameters('scriptsTmdsPrefix'),'.ps1',' -baseUrl ',parameters('baseUrl'),' -heartbeatUrl ',parameters('heartbeatUrl'),' -policy ',parameters('policy'),' -group ',parameters('group'))]"
+      },
+      "linux": {
+        "publisher": "Microsoft.Azure.Extensions",
+        "type": "CustomScript",
+        "typeHandlerVersion": "2.0",
+        "fileUris": [ "[concat(parameters('scriptsUriPrefix'),parameters('scriptsTmdsPrefix'),'.sh',parameters('scriptsSasToken'))]" ],
+        "commandToExecute": "[concat('sudo sh ',parameters('scriptsTmdsPrefix'),'.sh',' ',parameters('baseUrl'),' ',parameters('heartbeatUrl'),' ',parameters('policy'),' ',parameters('group'))]"
+      }
+    }
+  },
+  "resources": [
+    //VM TMDS
+    {
+      "name": "[variables('extensionName')]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-03-30",
+      "dependsOn": [],
+      "properties": {
+        "publisher": "[variables('extension')[parameters('os')].publisher]",
+        "type": "[variables('extension')[parameters('os')].type]",
+        "typeHandlerVersion": "[variables('extension')[parameters('os')].typeHandlerVersion]",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": "[variables('extension')[parameters('os')].fileUris]"
+        },
+        "protectedSettings": {
+          "commandToExecute": "[variables('extension')[parameters('os')].commandToExecute]"
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

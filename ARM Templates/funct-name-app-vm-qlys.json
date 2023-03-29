@@ -1,0 +1,123 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "vmName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of virtual machine"
+      }
+    },
+    "os": {
+      "type": "string",
+      "allowedValues": [ "windows", "linux" ],
+      "metadata": {
+        "description": "Target Operating System type for virtual machine"
+      }
+    },
+    "extensionName": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource name of custom script extension, as seen in Azure Portal if already provisioned"
+      }
+    },
+    "scriptsUriPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "URI of blob container containing QLYS script. For example, https://<yourStorageAccountName>.blob.core.usgovcloudapi.net/<yourContainer>/"
+      }
+    },
+    "scriptsQlysPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of QLYS script w/o file extension. For example, qlys"
+      }
+    },
+    "scriptsSasToken": {
+      "type": "string",
+      "metadata": {
+        "description": "SAS token that grants restricted access rights to Azure blob storage container where QLYS script resides"
+      }
+    },
+    "softwareSasToken": {
+      "type": "string",
+      "metadata": {
+        "description": "SAS token that grants restricted access rights to Azure blob storage container where QLYS software resides"
+      }
+    },          
+    "softwareUriPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "URI of blob container containing QLYS software. For example, https://<yourStorageAccountName>.blob.core.usgovcloudapi.net/<yourContainer>/"
+      }
+    },
+    "winQualysAgentName": {
+      "type": "string",
+      "defaultValue": "QualysCloudAgent.exe",
+      "metadata": {
+        "description": "Qualys Cloud Agent executable file for Windows OS."
+      }
+    },
+    "lnxQualysAgentName": {
+      "type": "string",
+      "defaultValue": "qualys-cloud-agent.x86_64.rpm",
+      "metadata": {
+        "description": "Qualys Cloud Agent rpm file for Linux (RHEL7) OS."
+      }
+    },            
+    "customerId": {
+      "type": "string",
+      "metadata": {
+        "description": "Customer ID associated with Qualys Cloud server."
+      }
+    },
+    "activationId": {
+      "type": "string",
+      "metadata": {
+        "description": "Activation ID associated with Qualys Cloud server."
+      }
+    }
+  },
+  "variables": {
+    "extensionName": "[concat(parameters('vmName'),'/',parameters('extensionName'))]",
+    "extension": {
+      "windows": {
+        "publisher": "Microsoft.Compute",
+        "type": "CustomScriptExtension",
+        "typeHandlerVersion": "1.8",
+        "fileUris": [ "[concat(parameters('scriptsUriPrefix'),parameters('scriptsQlysPrefix'),'.ps1',parameters('scriptsSasToken'))]" ],
+        "commandToExecute": "[concat('powershell.exe -ExecutionPolicy Unrestricted -File ',parameters('scriptsQlysPrefix'),'.ps1',' -QualysAgentUrl ',concat(parameters('softwareUriPrefix'),parameters('winQualysAgentName'),parameters('softwareSasToken')),' -CustomerID ',parameters('customerId'),' -ActivationID ',parameters('activationId'))]"
+      },
+      "linux": {
+        "publisher": "Microsoft.Azure.Extensions",
+        "type": "CustomScript",
+        "typeHandlerVersion": "2.0",
+        "fileUris": [ "[concat(parameters('scriptsUriPrefix'),parameters('scriptsQlysPrefix'),'.sh',parameters('scriptsSasToken'))]" ],
+        "commandToExecute": "[concat('sudo sh ',parameters('scriptsQlysPrefix'),'.sh',' ',concat(parameters('softwareUriPrefix'),parameters('lnxQualysAgentName'),parameters('softwareSasToken')),' ',parameters('customerId'),' ',parameters('activationId'))]"
+      }
+    }
+  },
+  "resources": [
+    //VM QLYS
+    {
+      "name": "[variables('extensionName')]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-03-30",
+      "dependsOn": [],
+      "properties": {
+        "publisher": "[variables('extension')[parameters('os')].publisher]",
+        "type": "[variables('extension')[parameters('os')].type]",
+        "typeHandlerVersion": "[variables('extension')[parameters('os')].typeHandlerVersion]",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": "[variables('extension')[parameters('os')].fileUris]"
+        },
+        "protectedSettings": {
+          "commandToExecute": "[variables('extension')[parameters('os')].commandToExecute]"
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

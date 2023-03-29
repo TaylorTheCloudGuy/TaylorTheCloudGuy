@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "svc": {
+      "type": "string"
+    },
+    "vmCount": {
+      "type": "int",
+      "defaultValue": 2
+    },
+    "mainParameters": {
+      "type": "object"
+    },
+    "dscServerUrl": {
+      "type": "securestring"
+    },
+    "dscRegistrationKey": {
+      "type": "securestring"
+    },
+    "dscNodeConfigurationName": {
+      "type": "string"
+    }
+  },
+  "variables": {},
+  "resources": [
+    //VM DSC
+    {
+      "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'/',parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-DSC')]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-05-01-preview",
+      "copy": {
+        "name": "dscLoop",
+        "count": "[parameters('vmCount')]"
+      },
+      "properties": {
+        "publisher": "Microsoft.OSTCExtensions",
+        "type": "DSCForLinux",
+        "typeHandlerVersion": "2.70",
+        "autoUpgradeMinorVersion": true,
+        "forceUpdateTag": "1.0",
+        "settings": {
+          "Mode": "Register",
+          "NodeConfigurationName": "[parameters('dscNodeConfigurationName')]",
+          "RebootNodeIfNeeded": false,
+          "RefreshFrequencyMins": 120,
+          "ConfigurationModeFrequencyMins": 60
+        },
+        "protectedSettings": {
+          "RegistrationUrl": "[parameters('dscServerUrl')]",
+          "RegistrationKey": "[parameters('dscRegistrationKey')]"
+        }
+      }
+    },
+    //VM SCRIPT
+    {
+      "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'/',parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-SCRIPT')]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-03-30",
+      "copy": {
+        "name": "scriptLoop",
+        "count": "[parameters('vmCount')]"
+      },
+      "dependsOn": [
+        "dscLoop"
+      ],
+      "properties": {
+        "publisher": "Microsoft.OSTCExtensions",
+        "type": "CustomScriptForLinux",
+        "typeHandlerVersion": "1.5",
+        "autoUpgradeMinorVersion": true,
+        "settings": {},
+        "protectedSettings": {
+          "commandToExecute": "[concat('sudo /opt/microsoft/dsc/Scripts/PerformRequiredConfigurationChecks.py')]"
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

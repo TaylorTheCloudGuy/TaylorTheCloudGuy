@@ -1,0 +1,49 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "kekUrl": {
+      "type": "securestring"
+    },
+    "kvtSecretUrl": {
+      "type": "string"
+    },
+    "vmName": {
+      "type": "string"
+    },
+    "mainParameters": {
+      "type": "object"
+    }
+  },
+  "variables": {},
+  "resources": [
+    //VM UPDATE
+    {
+      "name": "[parameters('vmName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-03-30",
+      "properties": {
+        "storageProfile": {
+          "osDisk": {
+            "encryptionSettings": {
+              "diskEncryptionKey": {
+                "sourceVault": {
+                  "id": "[parameters('mainParameters').kvtId]"
+                },
+                "secretUrl": "[parameters('kvtSecretUrl')]"
+              },
+              "keyEncryptionKey": {
+                "sourceVault": {
+                  "id": "[parameters('mainParameters').kvtId]"
+                },
+                "keyUrl": "[parameters('kekUrl')]"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

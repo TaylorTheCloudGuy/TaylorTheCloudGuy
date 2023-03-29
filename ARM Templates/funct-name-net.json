@@ -1,0 +1,407 @@
+﻿{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "cloudServiceProvider": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "enterprise": {
+      "type": "string"
+    },
+    "department": {
+      "type": "string"
+    },
+    "account": {
+      "type": "string"
+    },
+    "functionalArea": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "impactLevel": {
+      "type": "string"
+    },
+    "application": {
+      "type": "string"
+    },
+    "cmnSvcName": {
+      "type": "string"
+    },
+    "stgDomainName": {
+      "type": "string"
+    },
+    "templatesSasToken": {
+      "type": "string"
+    },
+    "cmnSvcSubscriptionId": {
+      "type": "string"
+    },
+    "sntInfo": {
+      "type": "array"
+    },
+    "sntInfoNative": {
+      "type": "array"
+    },
+    "vntNetworkOctets": {
+      "type": "array"
+    },
+    "deployVntGwy": {
+      "type": "bool"
+    },
+    "securityRules": {
+      "type": "object"
+    },
+    "udrRoutes": {
+      "type": "object"
+    },
+    "pipCount": {
+      "type": "int",
+      "defaultValue": 1
+    },
+    "tier2": {
+      "type": "int"
+    },
+    "deployedResources": {
+      "type": "object"
+    }
+  },
+  "variables": {
+    "commonNamePrefix": "[toUpper(concat(parameters('cloudServiceProvider'),'-',parameters('region'),'-',parameters('enterprise'),'-',parameters('department'),'-',parameters('account'),'-',parameters('functionalArea'),'-',parameters('environment'),'-',parameters('impactLevel'),'-',parameters('application'),'-'))]",
+    "templateUriPrefix": "[toLower(concat('https://',parameters('region'),parameters('application'),parameters('environment'),parameters('impactLevel'),'STG',parameters('stgDomainName'),'/templates/',parameters('environment'), '-', parameters('impactLevel'), '-', parameters('functionalArea'), '-', parameters('application'), '-'))]",
+    "linkedTemplateApiVersion": "2017-05-10",
+    "nsgRulesDefault": "[concat(parameters('securityRules').default,parameters('securityRules').Tier2,parameters('securityRules').Internet,parameters('securityRules').LDB,parameters('securityRules').DenyAll)]",
+    "nsgRulesGCDS": "[concat(variables('nsgRulesDefault'),parameters('securityRules').GCDS)]",
+    "nsgRulesASE": "[concat(variables('nsgRulesDefault'),parameters('securityRules').ASE)]",
+    "udrRoutesDefault": "[concat(parameters('udrRoutes').default)]",
+    "udrRoutesGCDS": "[concat(variables('udrRoutesDefault'),parameters('udrRoutes').GCDS)]",
+    "udrRoutesASE": "[concat(variables('udrRoutesDefault'),parameters('udrRoutes').GCDS,parameters('udrRoutes').ASE)]",
+    "nsgs": [
+      {
+        "name": "[concat(variables('commonNamePrefix'),'CMN-NSG-01')]",
+        "rules": "[variables('nsgRulesDefault')]"
+      },
+      {
+        "name": "[concat(variables('commonNamePrefix'),'DMZ-NSG-01')]",
+        "rules": "[if(equals(parameters('environment'),'D'),variables('nsgRulesDefault'),variables('nsgRulesGCDS'))]"
+      }
+    ],
+    "udrs": [
+      {
+        "name": "[concat(variables('commonNamePrefix'),'CMN-UDR-01')]",
+        "routes": "[variables('udrRoutesDefault')]"
+      },
+      {
+        "name": "[concat(variables('commonNamePrefix'),'DMZ-UDR-01')]",
+        "routes": "[if(equals(parameters('environment'),'D'),variables('udrRoutesDefault'),variables('udrRoutesGCDS'))]"
+      }
+    ],
+    "mainParameters": {
+      "cloudServiceProvider": "[parameters('cloudServiceProvider')]",
+      "region": "[parameters('region')]",
+      "enterprise": "[parameters('enterprise')]",
+      "department": "[parameters('department')]",
+      "account": "[parameters('account')]",
+      "functionalArea": "[parameters('functionalArea')]",
+      "application": "[parameters('application')]",
+      "environment": "[parameters('environment')]",
+      "impactLevel": "[parameters('impactLevel')]",
+      "linkedTemplateApiVersion": "2017-05-10",
+      "stgDomainName": "[parameters('stgDomainName')]",
+      "commonNamePrefix": "[variables('commonNamePrefix')]",
+      "templatesSasToken": "[parameters('templatesSasToken')]",
+      "templateUriPrefix": "[variables('templateUriPrefix')]",
+      "cmnsvcFunctionalArea": "[parameters('cmnSvcName')]",
+      "tier2": "[parameters('tier2')]",
+      "tags": {
+        "Enterprise": "[parameters('enterprise')]",
+        "Department": "[parameters('department')]",
+        "Account": "[parameters('account')]",
+        "Functional Area": "[parameters('functionalArea')]",
+        "Environment": "[parameters('environment')]",
+        "ImpactLevel": "[parameters('impactLevel')]",
+        "Application": "[parameters('application')]"
+      }
+    }
+  },
+  "resources": [
+    //NETWORK WATCHER
+    {
+      "condition": "[parameters('deployedResources').nwr]",
+      "name": "[concat(variables('commonNamePrefix'),'NWR-01')]",
+      "type": "Microsoft.Network/networkWatchers",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-09-01",
+      "tags": "[variables('mainParameters').tags]",
+      "dependsOn": [],
+      "copy": {
+        "name": "nwrLoop",
+        "count": 1
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('commonNamePrefix'),'NWR-01','-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[concat(variables('commonNamePrefix'),'NWR-01')]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //UDR
+    {
+      "condition": "[parameters('deployedResources').udr]",
+      "name": "[variables('udrs')[copyIndex()].name]",
+      "type": "Microsoft.Network/routeTables",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "dependsOn": [],
+      "tags": "[variables('mainParameters').tags]",
+      "copy": {
+        "name": "udrCopy",
+        "count": "[length(variables('udrs'))]"
+      },
+      "properties": {
+        "copy": [
+          {
+            "name": "routes",
+            "count": "[length(variables('udrs')[copyIndex()].routes)]",
+            "input": {
+              "name": "[concat(replace(variables('udrs')[copyIndex()].name,'-UDR-01','-RTE-'),add(copyIndex('routes'),1))]",
+              "properties": "[variables('udrs')[copyIndex()].routes[copyIndex('routes')]]"
+            }
+          }
+        ]
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('udrs')[copyIndex()].name,'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[variables('udrs')[copyIndex()].name]"
+          ],
+          "properties": {
+            "level": "ReadOnly"
+          }
+        }
+      ]
+    },
+    //VNT
+    {
+      "condition": "[parameters('deployedResources').vnt]",
+      "name": "[concat(variables('commonNamePrefix'),'VNT-01')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2018-02-01",
+      "dependsOn": [
+        "nsgLoop"
+      ],
+      "tags": "[variables('mainParameters').tags]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": "[parameters('vntNetworkOctets')]"
+        },
+        "copy": [
+          {
+            "name": "subnets",
+            "count": "[length(parameters('sntInfo'))]",
+            "input": {
+              "name": "[concat(variables('commonNamePrefix'),parameters('sntInfo')[copyIndex('subnets')].name)]",
+              "properties": {
+                "addressPrefix": "[parameters('sntInfo')[copyIndex('subnets')].addressPrefix]",
+                "serviceEndpoints": [
+                  {
+                    "service": "Microsoft.AzureCosmosDB"
+                  },
+                  {
+                    "service": "Microsoft.EventHub"
+                  },
+                  {
+                    "service": "Microsoft.KeyVault"
+                  },
+                  {
+                    "service": "Microsoft.ServiceBus"
+                  },
+                  {
+                    "service": "Microsoft.Sql"
+                  },
+                  {
+                    "service": "Microsoft.Storage"
+                  }
+                ],
+                "networkSecurityGroup": {
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat(variables('commonNamePrefix'),parameters('sntInfo')[copyIndex('subnets')].nsg))]"
+                },
+                "routeTable": {
+                  "id": "[resourceId('Microsoft.Network/routeTables',concat(variables('commonNamePrefix'),parameters('sntInfo')[copyIndex('subnets')].udr))]"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('commonNamePrefix'),'VNT-01','-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[concat(variables('commonNamePrefix'),'VNT-01')]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //SNT LOCKS
+    {
+      "condition": "[parameters('deployedResources').locks]",
+      "name": "[concat(variables('commonNamePrefix'),'VNT-01','/',variables('commonNamePrefix'), parameters('sntInfo')[copyIndex()].name,'/Microsoft.Authorization/',variables('commonNamePrefix'), parameters('sntInfo')[copyIndex()].name,'-LOCK')]",
+      "type": "Microsoft.Network/virtualNetworks/subnets/providers/locks",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks',concat(variables('commonNamePrefix'),'VNT-01'))]"
+      ],
+      "copy": {
+        "name": "sntLockLoop",
+        "count": "[length(parameters('sntInfo'))]"
+      },
+      "properties": {
+        "level": "CanNotDelete"
+      }
+    },
+    //SNT
+    {
+      "condition": "[parameters('deployedResources').snt]",
+      "name": "[concat(variables('commonNamePrefix'),'VNT-01/',if(equals(parameters('sntInfoNative')[copyIndex()].name,'GatewaySubnet'),parameters('sntInfoNative')[copyIndex()].name,concat(variables('commonNamePrefix'),parameters('sntInfoNative')[copyIndex()].name)))]",
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-06-01",
+      "dependsOn": [
+        "[concat(variables('commonNamePrefix'),'VNT-01')]"
+      ],
+      "copy": {
+        "name": "sntLoop",
+        "count": "[length(parameters('sntInfoNative'))]"
+      },
+      "properties": {
+        "addressPrefix": "[parameters('sntInfoNative')[copyIndex()].addressPrefix]"
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',if(equals(parameters('sntInfoNative')[copyIndex()].name,'GatewaySubnet'),parameters('sntInfoNative')[copyIndex()].name,concat(variables('commonNamePrefix'),parameters('sntInfoNative')[copyIndex()].name)),'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[if(equals(parameters('sntInfoNative')[copyIndex()].name,'GatewaySubnet'),parameters('sntInfoNative')[copyIndex()].name,concat(variables('commonNamePrefix'),parameters('sntInfoNative')[copyIndex()].name))]"
+          ],
+          "properties": {
+            "level": "ReadOnly"
+          }
+        }
+      ]
+    },
+    //NSG
+    {
+      "condition": "[parameters('deployedResources').nsg]",
+      "name": "[variables('nsgs')[copyIndex()].name]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2017-10-01",
+      "location": "[resourceGroup().location]",
+      "tags": "[variables('mainParameters').tags]",
+      "dependsOn": [],
+      "copy": {
+        "name": "nsgLoop",
+        "count": "[length(variables('nsgs'))]"
+      },
+      "properties": {
+        "securityRules": "[variables('nsgs')[copyIndex()].rules]"
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('nsgs')[copyIndex()].name,'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[variables('nsgs')[copyIndex()].name]"
+          ],
+          "properties": {
+            "level": "ReadOnly"
+          }
+        }
+      ]
+    },
+    //PIP
+    {
+      "condition": "[parameters('deployedResources').pip]",
+      "name": "[concat(variables('commonNamePrefix'),'PIP-0',copyIndex(1))]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-06-01",
+      "tags": "[variables('mainParameters').tags]",
+      "dependsOn": [],
+      "copy": {
+        "name": "pipLoop",
+        "count": "[parameters('pipCount')]"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      },
+      "resources": [
+        {
+          "condition": "[and(parameters('deployedResources').pip,parameters('deployedResources').locks)]",
+          "name": "[concat('Microsoft.Authorization/',variables('commonNamePrefix'),'PIP-0',copyIndex(1),'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[concat(variables('commonNamePrefix'),'PIP-0',copyIndex(1))]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //TEMPLATE PRG
+    {
+      "condition": "[parameters('deployedResources').prg]",
+      "name": "linkedTemplatePRG",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[variables('linkedTemplateApiVersion')]",
+      "dependsOn": [
+        "[concat(variables('commonNamePrefix'),'VNT-01')]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('templateUriPrefix'), 'net-prg.json',parameters('templatesSasToken'))]",
+          "contentVersion": "1.0.0.1"
+        },
+        "parameters": {
+          "mainParameters": {
+            "value": "[variables('mainParameters')]"
+          },
+          "cmnsvcSubscriptionId": {
+            "value": "[parameters('cmnSvcSubscriptionId')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

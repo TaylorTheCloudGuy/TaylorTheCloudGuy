@@ -1,0 +1,114 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "vmCount": {
+      "type": "int"
+    },
+    "svc": {
+      "type": "string"
+    },
+    "mainParameters": {
+      "type": "object"
+    },
+    "dscServerUrl": {
+      "type": "securestring"
+    },
+    "dscRegistrationKey": {
+      "type": "securestring"
+    },
+    "dscModulesUrl": {
+      "type": "string"
+    },
+    "dscConfigurationScript": {
+      "type": "string"
+    },
+    "dscConfigurationFunction": {
+      "type": "string"
+    },
+    "dscNodeConfigurationName": {
+      "type": "string"
+    }
+  },
+  "variables": {},
+  "resources": [
+    //VM DSC LCM
+    {
+      "name": "[concat(parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'/',parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix,'-DSC')]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-12-01",
+      "copy": {
+        "name": "dscLoop",
+        "count": "[parameters('vmCount')]"
+      },
+      "properties": {
+        "publisher": "Microsoft.Powershell",
+        "type": "DSC",
+        "typeHandlerVersion": "2.77",
+        "autoUpgradeMinorVersion": true,
+        "forceUpdateTag": "1.0",
+        //"settings": {
+        "protectedSettings": {
+          "Items": {
+            "dscRegistrationKey": "[parameters('dscRegistrationKey')]"
+          }
+        },
+        /*"publicSettings": {
+            "configurationArguments": [
+              {
+                "Name": "RegistrationKey",
+                "Value": {
+                  "UserName": "dscRegistrationKey",
+                  "Password": "PrivateSettingsRef:dscRegistrationKey"
+                }
+              },
+              {
+                "RegistrationUrl": "[parameters('dscServerUrl')]"
+              },
+              {
+                "NodeConfigurationName": "[concat('d_il4_aflcmc_afds_dsc_bst.',parameters('svc'))]"
+              },
+              {
+                "AllowModuleOverwrite": true
+              },
+              {
+                "ActionAfterReboot": "ContinueConfiguration"
+              },
+              {
+                "RebootNodeIfNeeded": false
+              },
+              {
+                "ConfigurationModeFrequencyMins": 15
+              },
+              {
+                "RefreshFrequencyMins": 30 
+              },
+              {
+                "ConfigurationMode": "ApplyandAutoCorrect" 
+              }
+            ]
+          }*/
+        //}
+        "settings": {
+          "ModulesUrl": "[parameters('dscModulesUrl')]",
+          "SasToken": "",
+          "ConfigurationFunction": "[concat(parameters('dscConfigurationScript'),'\\',parameters('dscConfigurationFunction'))]",
+          "Properties": {
+            "RegistrationUrl": "[parameters('dscServerUrl')]",
+            "RegistrationKey": {
+              "UserName": "dscRegistrationKey",
+              "Password": "PrivateSettingsRef:dscRegistrationKey"
+            },
+            "RebootNodeIfNeeded": false,
+            "AllowModuleOverwrite": true,
+            "NodeConfigurationName": "[concat(parameters('dscNodeConfigurationName'),'.',parameters('svc'),copyIndex(1),parameters('mainParameters').vmNameSuffix)]",
+            "RefreshFrequencyMins": 120,
+            "ConfigurationModeFrequencyMins": 60
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

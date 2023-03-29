@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "secrets": {
+      "value": {
+        "qlys": {
+          "customerId": "customerId",
+          "activationId": "activationId"
+        },
+        "dsc": {
+          "key": "dscRegistrationKey",
+          "url": "dscServerUrl"
+        },
+        "dskEncrypt": {
+          "kekUrl": "kekUrl",
+          "dskEncryptKeyUrl": "dskEncryptKeyUrl",
+          "dskEncryptPassphrase": "dskEncryptPassphrase",
+          "aadClientId": "aadClientId",
+          "aadClientSecret": "aadClientSecret"
+        },
+        "bst": {
+          "user": "bstVmUserName",
+          "secret": "bstVmSecret"
+        },
+        "lnx": {
+          "user": "lnxVmUserName",
+          "secret": "lnxVmSecret"
+        },
+        "tfa": {
+          "user": "tfaVmUserName",
+          "secret": "tfaVmSecret"
+        }
+      }
+    },
+    "ipAddresses": {
+      "value": {
+        "bst": {
+          "ldb": [],
+          "vms": [
+            "PLACE_HOLDER"
+          ],
+          "dns": [
+            "PLACE_HOLDER"
+          ]
+        },
+        "lnx": {
+          "ldb": [],
+          "vms": [
+            "PLACE_HOLDER"
+          ],
+          "dns": [
+            "PLACE_HOLDER"
+          ]
+        },
+        "tfa": {
+          "ldb": [],
+          "vms": [
+            "PLACE_HOLDER"
+          ],
+          "dns": [
+            "PLACE_HOLDER"
+          ]
+        }
+      }
+    },
+    "deployedResources": {
+      "value": {
+        "bst": [ "BST", "DSC" ],
+        "lnx": [ "", "" ],
+        "tfa": [ "TFA", "DSC" ]
+      }
+    }
+  }
+}

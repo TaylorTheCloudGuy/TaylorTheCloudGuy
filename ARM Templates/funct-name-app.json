@@ -1,0 +1,639 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "cloudServiceProvider": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "enterprise": {
+      "type": "string"
+    },
+    "department": {
+      "type": "string"
+    },
+    "account": {
+      "type": "string"
+    },
+    "functionalArea": {
+      "type": "string"
+    },
+    "application": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "impactLevel": {
+      "type": "string"
+    },
+    "cmnSvcName": {
+      "type": "string"
+    },
+    "stgDomainName": {
+      "type": "string"
+    },
+    "templatesSasToken": {
+      "type": "string"
+    },
+    "dscSasToken": {
+      "type": "string"
+    },
+    "scriptsSasToken": {
+      "type": "string"
+    },
+    "softwareSasToken": {
+      "type": "string"
+    },    
+    "cmnSvcSubscriptionId": {
+      "type": "string"
+    },
+    "azureCCEDomainName": {
+      "type": "string"
+    },
+    "domainName": {
+      "type": "string"
+    },
+    "rootOUPath": {
+      "type": "string"
+    },
+    "vmRemoteAccessOUPath": {
+      "type": "string"
+    },
+    "commonServicesOUName": {
+      "type": "string"
+    },
+    "azureADOUName": {
+      "type": "string"
+    },
+    "dscNodeConfigurationName": {
+      "type": "string"
+    },
+    "dscConfigurationMode": {
+      "type": "string",
+      "allowedValues": [
+        "ApplyOnly",
+        "ApplyAndMonitor",
+        "ApplyAndAutoCorrect"
+      ]
+    },
+    "dscConfigurationModeFrequencyMins": {
+      "type": "int"
+    },
+    "dscRefreshFrequencyMins": {
+      "type": "int"
+    },
+    "dscRebootNodeIfNeeded": {
+      "type": "bool"
+    },
+    "dscActionAfterReboot": {
+      "type": "string"
+    },
+    "dscAllowModuleOverwrite": {
+      "type": "bool"
+    },
+    "dscTimestamp": {
+      "type": "string"
+    },
+    "secrets": {
+      "type": "object"
+    },
+    "ipAddresses": {
+      "type": "object"
+    },
+    "deployedResources": {
+      "type": "object"
+    },
+    "vmCount": {
+      "type": "object",
+      "defaultValue": {
+        "tfa": 1,
+        "bst": 2
+      }
+    }
+  },
+  "variables": {
+    "commonNamePrefix": "[toUpper(concat(parameters('cloudServiceProvider'),'-',parameters('region'),'-',parameters('enterprise'),'-',parameters('department'),'-',parameters('account'),'-',parameters('functionalArea'),'-',parameters('environment'),'-',parameters('impactLevel'),'-',parameters('application'),'-'))]",
+    "vntRgpName": "[concat(variables('commonNamePrefix'),'NET-RGP-01')]",
+    "vntName": "[concat(variables('commonNamePrefix'),'VNT-01')]",
+    "vntId": "[resourceId(variables('vntRgpName'),'Microsoft.Network/virtualNetworks',variables('vntName'))]",
+    "cmnSntId": "[concat(variables('vntId'),'/subnets/',variables('commonNamePrefix'),'CMN-SNT-01')]",
+    "corRgpName": "[concat(variables('commonNamePrefix'),'COR-RGP-01')]",
+    "rcvName": "[concat(variables('commonNamePrefix'),'RCV-01')]",
+    "rcvId": "[resourceId(variables('corRgpName'),'Microsoft.RecoveryServices/vaults',variables('rcvName'))]",
+    "omsRgpName": "[concat(replace(variables('commonNamePrefix'),concat('-',parameters('region'),'-'),'-GV-'),'COR-RGP-01')]",
+    "kvtRgpName": "[concat(variables('commonNamePrefix'),'COR-RGP-01')]",
+    "kvtName": "[concat(parameters('region'),parameters('application'),parameters('environment'),parameters('impactLevel'),'KVT')]",
+    "kvtId": "[resourceId(variables('corRgpName'),'Microsoft.KeyVault/vaults',variables('kvtName'))]",
+    "cmnSvcNamePrefix": "[toUpper(concat(parameters('cloudServiceProvider'),'-',parameters('region'),'-',parameters('enterprise'),'-',parameters('department'),'-',parameters('account'),'-',parameters('cmnSvcName'),'-',parameters('environment'),'-',parameters('impactLevel'),'-'))]",
+    "cmnSvcCorRgpName": "[toUpper(concat(variables('cmnSvcNamePrefix'),'COR-RGP-01'))]",
+    "cmnSvcOmsId": "[resourceId(parameters('cmnSvcSubscriptionId'),replace(variables('cmnSvcCorRgpName'),concat('-',parameters('region'),'-'),'-GV-'),'Microsoft.OperationalInsights/workspaces',concat(replace(variables('cmnSvcNamePrefix'),concat('-',parameters('region'),'-'),'-GV-'),'OMS-01'))]",
+    "cmnSvcKvtRegion": {
+      "IL4": "GV",
+      "IL5": "DE"
+    },
+    "cmnSvcKvtName": "[concat(variables('cmnSvcKvtRegion')[parameters('impactLevel')],parameters('cmnSvcName'),parameters('environment'),parameters('impactLevel'),'KVT')]",
+    "cmnSvcKvtId": "[resourceId(parameters('cmnSvcSubscriptionId'),replace(variables('cmnSvcCorRgpName'),concat('-',parameters('region'),'-'),concat('-',variables('cmnSvcKvtRegion')[parameters('impactLevel')],'-')),'Microsoft.KeyVault/vaults',variables('cmnSvcKvtName'))]",
+    "templateUriPrefix": "[toLower(concat('https://',parameters('region'),parameters('application'),parameters('environment'),parameters('impactLevel'),'STG',parameters('stgDomainName'),'/templates/',parameters('environment'), '-', parameters('impactLevel'), '-', parameters('functionalArea'), '-', parameters('application'), '-'))]",
+    "dscUriPrefix": "[toLower(concat('https://',parameters('region'),parameters('application'),parameters('environment'),parameters('impactLevel'),'STG',parameters('stgDomainName'),'/dsc/'))]",
+    "dscConfigurationPrefix": "[toLower(concat(parameters('functionalArea'),'-',parameters('application'),'-dsc'))]",
+    "scriptUriPrefix": "[toLower(concat('https://',parameters('region'),parameters('application'),parameters('environment'),parameters('impactLevel'),'STG',parameters('stgDomainName'),'/scripts/'))]",
+    "softwareUriPrefix": "[toLower(concat('https://',parameters('region'),parameters('application'),parameters('environment'),parameters('impactLevel'),'STG',parameters('stgDomainName'),'/software/'))]",    
+    "environments": {
+      "D": "dev",
+      "T": "test",
+      "P": "prod",
+      "L": "lab",
+      "R": "release"
+    },
+    "thirdOctet": {
+      "D": "0",
+      "T": "1",
+      "P": "2"
+    },
+    "mainParameters": {
+      "cloudServiceProvider": "[parameters('cloudServiceProvider')]",
+      "region": "[parameters('region')]",
+      "enterprise": "[parameters('enterprise')]",
+      "department": "[parameters('department')]",
+      "account": "[parameters('account')]",
+      "functionalArea": "[parameters('functionalArea')]",
+      "application": "[parameters('application')]",
+      "environment": "[parameters('environment')]",
+      "impactLevel": "[parameters('impactLevel')]",
+      "environments": "[variables('environments')]",
+      "linkedTemplateApiVersion": "2017-05-10",
+      "stgDomainName": "[parameters('stgDomainName')]",
+      "azureCCEDomainName": "[parameters('azureCCEDomainName')]",
+      "commonNamePrefix": "[variables('commonNamePrefix')]",
+      "vmNameSuffix": "[toUpper(concat(parameters('application'),parameters('environment'),parameters('region')))]",
+      "cmnSntId": "[variables('cmnSntId')]",
+      "kvtId": "[variables('kvtId')]",
+      "kvtUrl": "[concat('https://',variables('kvtName'),'.vault.usgovcloudapi.net/')]",
+      "templatesSasToken": "[parameters('templatesSasToken')]",
+      "templateUriPrefix": "[variables('templateUriPrefix')]",
+      "dscSasToken": "[parameters('dscSasToken')]",
+      "dscUriPrefix": "[variables('dscUriPrefix')]",
+      "dscConfigurationPrefix": "[variables('dscConfigurationPrefix')]",
+      "scriptsSasToken": "[parameters('scriptsSasToken')]",
+      "scriptsUriPrefix": "[variables('scriptUriPrefix')]",
+      "scriptsConfigurationPrefix": "[toLower(concat(parameters('functionalArea'),'-',parameters('application'),'-script'))]",
+      "softwareUriPrefix": "[variables('softwareUriPrefix')]",
+      "softwareSasToken": "[parameters('softwareSasToken')]",      
+      "omsRgpName": "[variables('omsRgpName')]",
+      "omsName": "[concat(variables('commonNamePrefix'),'OMS-01')]",
+      "omsAPIVersion": "2015-11-01-preview",
+      "corRgpName": "[variables('corRgpName')]",
+      "rcvName": "[variables('rcvName')]",
+      "rcvId": "[variables('rcvId')]",
+      "backupFabric": "Azure",
+      "v2VmType": "Microsoft.Compute/virtualMachines",
+      "v2VmContainer": "iaasvmcontainer;iaasvmcontainerv2;",
+      "v2VmContainerNamePrefix": "iaasvmcontainerv2;",
+      "v2Vm": "vm;iaasvmcontainerv2;",
+      "cmnSvcOmsId": "[variables('cmnSvcOmsId')]",
+      "cmnSvcKvtId": "[variables('cmnSvcKvtId')]",
+      "cmnSvcKvtUrl": "[concat('https://',variables('cmnSvcKvtName'),'.vault.usgovcloudapi.net/')]",
+      "domainName": "[parameters('domainName')]",
+      "rootOUPath": "[parameters('rootOUPath')]",
+      "vmRemoteAccessOUPath": "[parameters('vmRemoteAccessOUPath')]",
+      "dskEncryptAlgorithm": "RSA-OAEP",
+      "dskEncryptVolumeType": "All",
+      "dskEncryptOperation": "EnableEncryption",
+      "dskEncryptSequenceVersion": 1,
+      "dskEncryptFormatQuery": "",
+      "dscNodeConfigurationName": "[parameters('dscNodeConfigurationName')]",
+      "dscConfigurationMode": "[parameters('dscConfigurationMode')]",
+      "dscConfigurationModeFrequencyMins": "[parameters('dscConfigurationModeFrequencyMins')]",
+      "dscRefreshFrequencyMins": "[parameters('dscRefreshFrequencyMins')]",
+      "dscRebootNodeIfNeeded": "[parameters('dscRebootNodeIfNeeded')]",
+      "dscActionAfterReboot": "[parameters('dscActionAfterReboot')]",
+      "dscAllowModuleOverwrite": "[parameters('dscAllowModuleOverwrite')]",
+      "dscTimestamp": "[parameters('dscTimestamp')]",
+      "tags": {
+        "Enterprise": "[parameters('enterprise')]",
+        "Department": "[parameters('department')]",
+        "Account": "[parameters('account')]",
+        "Environment": "[parameters('environment')]",
+        "Functional Area": "[parameters('functionalArea')]",
+        "Application": "[parameters('application')]",
+        "ImpactLevel": "[parameters('impactLevel')]"
+      },
+      "tmds": {
+        "baseUrl": "[concat('https://172.23.',variables('thirdOctet')[parameters('environment')],'.9:443/')]",
+        "heartbeatUrl": "[concat('dsm://172.23.',variables('thirdOctet')[parameters('environment')],'.8:4120/')]",
+        "policy": "'Base Policy'",
+        "group": "CMNSVC"
+      }
+    }
+  },
+  "resources": [
+    //TEMPLATE BST
+    {
+      "condition": "[contains(parameters('deployedResources').bst,'BST')]",
+      "name": "linkedTemplateBST",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[variables('mainParameters').linkedTemplateApiVersion]",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('templateUriPrefix'), 'app-bst.json',parameters('templatesSasToken'))]",
+          "contentVersion": "1.0.0.1"
+        },
+        "parameters": {
+          "kekUrl": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.kekUrl]"
+            }
+          },
+          "dskEncryptKeyUrl": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.dskEncryptKeyUrl]"
+            }
+          },
+          "aadClientId": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.aadClientId]"
+            }
+          },
+          "aadClientSecret": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.aadClientSecret]"
+            }
+          },
+          "mainParameters": {
+            "value": "[variables('mainParameters')]"
+          },
+          "ipAddresses": {
+            "value": "[parameters('ipAddresses')]"
+          },
+          "secrets": {
+            "value": "[parameters('secrets')]"
+          },
+          "vmCount": {
+            "value": "[parameters('vmCount').bst]"
+          },
+          "vmUserName": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('cmnSvcKvtId')]"
+              },
+              "secretName": "[parameters('secrets').bst.user]"
+            }
+          },
+          "vmPassword": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('cmnSvcKvtId')]"
+              },
+              "secretName": "[parameters('secrets').bst.secret]"
+            }
+          }
+        }
+      }
+    },
+    //TEMPLATE BST DSC
+    {
+      "condition": "[contains(parameters('deployedResources').bst,'DSC')]",
+      "name": "[concat('linkedTemplateBSTDSC',copyIndex(1))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[variables('mainParameters').linkedTemplateApiVersion]",
+      "copy": {
+        "name": "bstDSCLoop",
+        "count": 1
+      },
+      "dependsOn": [
+        "linkedTemplateBST"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('templateUriPrefix'), 'app-dsc.json',parameters('templatesSasToken'))]",
+          "contentVersion": "1.0.0.1"
+        },
+        "parameters": {
+          "vmCount": {
+            "value": "[parameters('vmCount').bst]"
+          },
+          "svc": {
+            "value": "BST"
+          },
+          "mainParameters": {
+            "value": "[variables('mainParameters')]"
+          },
+          "dscModulesUrl": {
+            "value": "[concat(variables('dscUriPrefix'),variables('dscConfigurationPrefix'),'.zip',parameters('dscSasToken'))]"
+          },
+          "dscConfigurationScript": {
+            "value": "[concat(variables('dscConfigurationPrefix'),'.ps1')]"
+          },
+          "dscServerUrl": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('mainParameters').cmnSvcKvtId]"
+              },
+              "secretName": "[parameters('secrets').dsc.url]"
+            }
+          },
+          "dscRegistrationKey": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('mainParameters').cmnSvcKvtId]"
+              },
+              "secretName": "[parameters('secrets').dsc.key]"
+            }
+          },
+          "dscConfigurationFunction": {
+            "value": "ConfigureLCMforAAPull"
+          },
+          "dscNodeConfigurationName": {
+            "value": "[concat(parameters('dscNodeConfigurationName'),'bst')]"
+          }
+        }
+      }
+    },
+    //TEMPLATE TFA
+    {
+      "condition": "[contains(parameters('deployedResources').tfa,'TFA')]",
+      "name": "linkedTemplateTFA",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[variables('mainParameters').linkedTemplateApiVersion]",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('templateUriPrefix'), 'app-tfa.json',parameters('templatesSasToken'))]",
+          "contentVersion": "1.0.0.1"
+        },
+        "parameters": {
+          "kekUrl": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.kekUrl]"
+            }
+          },
+          "dskEncryptKeyUrl": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.dskEncryptKeyUrl]"
+            }
+          },
+          "aadClientId": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.aadClientId]"
+            }
+          },
+          "aadClientSecret": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.aadClientSecret]"
+            }
+          },
+          "mainParameters": {
+            "value": "[variables('mainParameters')]"
+          },
+          "ipAddresses": {
+            "value": "[parameters('ipAddresses')]"
+          },
+          "secrets": {
+            "value": "[parameters('secrets')]"
+          },
+          "vmCount": {
+            "value": "[parameters('vmCount').tfa]"
+          },          
+          "vmUserName": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('cmnSvcKvtId')]"
+              },
+              "secretName": "[parameters('secrets').tfa.user]"
+            }
+          },
+          "vmPassword": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('cmnSvcKvtId')]"
+              },
+              "secretName": "[parameters('secrets').tfa.secret]"
+            }
+          }
+        }
+      }
+    },
+    //TEMPLATE TFA DSC
+    {
+      "condition": "[contains(parameters('deployedResources').tfa,'DSC')]",
+      "name": "linkedTemplateTFADSC",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[variables('mainParameters').linkedTemplateApiVersion]",
+      "copy": {
+        "name": "tfaDSCLoop",
+        "count": 1
+      },
+      "dependsOn": [
+        "linkedTemplateTFA"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('templateUriPrefix'), 'app-dsc.json',parameters('templatesSasToken'))]",
+          "contentVersion": "1.0.0.1"
+        },
+        "parameters": {
+          "vmCount": {
+            "value": "[parameters('vmCount').tfa]"
+          },
+          "svc": {
+            "value": "TFA"
+          },
+          "mainParameters": {
+            "value": "[variables('mainParameters')]"
+          },
+          "dscModulesUrl": {
+            "value": "[concat(variables('dscUriPrefix'),variables('dscConfigurationPrefix'),'.zip',parameters('dscSasToken'))]"
+          },
+          "dscConfigurationScript": {
+            "value": "[concat(variables('dscConfigurationPrefix'),'.ps1')]"
+          },
+          "dscServerUrl": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('mainParameters').cmnSvcKvtId]"
+              },
+              "secretName": "[parameters('secrets').dsc.url]"
+            }
+          },
+          "dscRegistrationKey": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('mainParameters').cmnSvcKvtId]"
+              },
+              "secretName": "[parameters('secrets').dsc.key]"
+            }
+          },
+          "dscConfigurationFunction": {
+            "value": "ConfigureLCMforAAPull"
+          },
+          "dscNodeConfigurationName": {
+            "value": "[concat(parameters('dscNodeConfigurationName'),'tfa')]"
+          }
+        }
+      }
+    },
+    //TEMPLATE LNX
+    {
+      "condition": "[contains(parameters('deployedResources').lnx,'LNX')]",
+      "name": "linkedTemplateLNX",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[variables('mainParameters').linkedTemplateApiVersion]",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('templateUriPrefix'), 'app-lnx.json',parameters('templatesSasToken'))]",
+          "contentVersion": "1.0.0.1"
+        },
+        "parameters": {
+          "kekUrl": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.kekUrl]"
+            }
+          },
+          "dskEncryptKeyUrl": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.dskEncryptKeyUrl]"
+            }
+          },
+          "dskEncryptPassphrase": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.dskEncryptPassphrase]"
+            }
+          },
+          "aadClientId": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.aadClientId]"
+            }
+          },
+          "aadClientSecret": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('kvtId')]"
+              },
+              "secretName": "[parameters('secrets').dskEncrypt.aadClientSecret]"
+            }
+          },
+          "mainParameters": {
+            "value": "[variables('mainParameters')]"
+          },
+          "ipAddresses": {
+            "value": "[parameters('ipAddresses')]"
+          },
+          "secrets": {
+            "value": "[parameters('secrets')]"
+          },
+          "vmUserName": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('cmnSvcKvtId')]"
+              },
+              "secretName": "[parameters('secrets').lnx.user]"
+            }
+          },
+          "vmPassword": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('cmnSvcKvtId')]"
+              },
+              "secretName": "[parameters('secrets').lnx.secret]"
+            }
+          }
+        }
+      }
+    },
+    //TEMPLATE LNX DSC
+    {
+      "condition": "[contains(parameters('deployedResources').lnx,'DSC')]",
+      "name": "[concat('linkedTemplateLNXDSC',copyIndex(1))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[variables('mainParameters').linkedTemplateApiVersion]",
+      "copy": {
+        "name": "lnxDSCLoop",
+        "count": 1
+      },
+      "dependsOn": [
+        "linkedTemplateLNX"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(variables('templateUriPrefix'), 'app-dsc-nx.json',parameters('templatesSasToken'))]",
+          "contentVersion": "1.0.0.1"
+        },
+        "parameters": {
+          "svc": {
+            "value": "LNX"
+          },
+          "vmCount": {
+            "value": 2
+          },
+          "mainParameters": {
+            "value": "[variables('mainParameters')]"
+          },
+          "dscServerUrl": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('mainParameters').cmnSvcKvtId]"
+              },
+              "secretName": "[parameters('secrets').dsc.url]"
+            }
+          },
+          "dscRegistrationKey": {
+            "reference": {
+              "keyVault": {
+                "id": "[variables('mainParameters').cmnSvcKvtId]"
+              },
+              "secretName": "[parameters('secrets').dsc.key]"
+            }
+          },
+          "dscNodeConfigurationName": {
+            "value": "[concat(parameters('dscNodeConfigurationName'),'lnx.LNX',copyIndex(1),variables('mainParameters').vmNameSuffix)]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

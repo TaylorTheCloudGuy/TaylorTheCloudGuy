@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "vmName": {
+      "type": "string"
+    },
+    "resourceGroupName": {
+      "type": "string"
+    },
+    "backupPolicyId": {
+      "type": "string"
+    },
+    "mainParameters": {
+      "type": "object"
+    }
+  },
+  "variables": {},
+  "resources": [
+    {
+      "name": "[concat(parameters('mainParameters').rcvName,'/',parameters('mainParameters').backupFabric,'/',parameters('mainParameters').v2VmContainer,concat(parameters('resourceGroupName'),';',parameters('vmName')),'/',parameters('mainParameters').v2Vm,concat(parameters('resourceGroupName'),';',parameters('vmName')))]",
+      "type": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-06-01",
+      "tags": "[parameters('mainParameters').tags]",
+      "dependsOn": [],
+      "properties": {
+        "protectedItemType": "[parameters('mainParameters').v2VmType]",
+        "policyId": "[parameters('backupPolicyId')]",
+        //"policyId": "[resourceId(parameters('mainParameters').rcvRgpName,'Microsoft.RecoveryServices/vaults/backupPolicies',concat(parameters('mainParameters').commonNamePrefix,'RCV-01'),concat(parameters('mainParameters').commonNamePrefix,'BST-BKP-01'))]",
+        "sourceResourceId": "[resourceId(parameters('resourceGroupName'),'Microsoft.Compute/virtualMachines',parameters('vmName'))]"
+      }
+    }
+  ],
+  "outputs": {}
+}

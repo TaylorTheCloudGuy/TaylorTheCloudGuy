@@ -1,0 +1,1100 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "cloudServiceProvider": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "enterprise": {
+      "type": "string"
+    },
+    "department": {
+      "type": "string"
+    },
+    "account": {
+      "type": "string"
+    },
+    "functionalArea": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "impactLevel": {
+      "type": "string"
+    },
+    "application": {
+      "type": "string"
+    },
+    "cmnSvcName": {
+      "type": "string"
+    },
+    "stgDomainName": {
+      "type": "string"
+    },
+    "templatesSasToken": {
+      "type": "string"
+    },
+    "aaaLocation": {
+      "type": "string",
+      "defaultValue": "usgovvirginia"
+    },
+    "aaaSku": {
+      "type": "string",
+      "allowedValues": [
+        "Free",
+        "Basic"
+      ]
+    },
+    "aaaModules": {
+      "type": "array"
+    },
+    "kvtEnabledForDeployment": {
+      "type": "bool"
+    },
+    "kvtEnabledForDiskEncryption": {
+      "type": "bool"
+    },
+    "kvtEnabledForTemplateDeployment": {
+      "type": "bool"
+    },
+    "kvtAccessPolicies": {
+      "type": "array",
+      "defaultValue": []
+    },
+    "omsLocation": {
+      "type": "string",
+      "defaultValue": "usgovvirginia"
+    },
+    "omsDataRetention": {
+      "type": "int",
+      "maxValue": 730,
+      "minValue": 1,
+      "defaultValue": 730
+    },
+    "omsSku": {
+      "type": "string",
+      "allowedValues": [
+        "Free",
+        "Standard",
+        "Premium",
+        "Unlimited",
+        "PerNode",
+        "Standalone",
+        "PerGB2018"
+      ],
+      "defaultValue": "PerGB2018"
+    },
+    "stgType": {
+      "type": "string",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Standard_ZRS",
+        "Premium_LRS"
+      ]
+    },
+    "stgAllowedIPs": {
+      "type": "array",
+      "defaultValue": []
+    },
+    "tenant": {
+      "type": "string"
+    },
+    "cmnSvcSubscriptionId": {
+      "type": "string"
+    },
+    "kvtSkuFamily": {
+      "type": "string",
+      "defaultValue": "A",
+      "allowedValues": [
+        "A"
+      ]
+    },
+    "kvtSkuName": {
+      "type": "string",
+      "defaultValue": "Premium",
+      "allowedValues": [
+        "Standard",
+        "standard",
+        "Premium",
+        "premium"
+      ]
+    },
+    "rcvSkuTier": {
+      "type": "string",
+      "defaultValue": "Standard",
+      "allowedValues": [
+        "Standard"
+      ]
+    },
+    "bkpInfo": {
+      "type": "array"
+    },
+    "deployedResources": {
+      "type": "object"
+    }
+  },
+  "variables": {
+    "commonNamePrefix": "[toUpper(concat(parameters('cloudServiceProvider'),'-',parameters('region'),'-',parameters('enterprise'),'-',parameters('department'),'-',parameters('account'),'-',parameters('functionalArea'),'-',parameters('environment'),'-',parameters('impactLevel'),'-',parameters('application'),'-'))]",
+    "netRgpName": "[concat(variables('commonNamePrefix'),'NET-RGP-01')]",
+    "gvResourceGroupName": "[replace(resourceGroup().name,concat('-',parameters('region'),'-'),'-GV-')]",
+    "vntName": "[concat(variables('commonNamePrefix'),'VNT-01')]",
+    "vntId": "[resourceId(variables('netRgpName'),'Microsoft.Network/virtualNetworks',variables('vntName'))]",
+    "cmnSntId": "[concat(variables('vntId'),'/subnets/',variables('commonNamePrefix'),'CMN-SNT-01')]",
+    "cmnSvcVntRgpName": "[toUpper(concat(parameters('cloudServiceProvider'),'-',parameters('region'),'-',parameters('enterprise'),'-',parameters('department'),'-',parameters('account'),'-',parameters('cmnSvcName'),'-',parameters('environment'),'-',parameters('impactLevel'),'-NET-RGP-01'))]",
+    "cmnSvcVntId": "[concat('/subscriptions/',parameters('cmnSvcSubscriptionId'),'/resourceGroups/',variables('cmnSvcVntRgpName'),'/providers/Microsoft.Network/virtualNetworks/',toUpper(concat(parameters('cloudServiceProvider'),'-',parameters('region'),'-',parameters('enterprise'),'-',parameters('department'),'-',parameters('account'),'-CMNSVC-',parameters('environment'),'-',parameters('impactLevel'),'-VNT-01')))]",
+    "cmnSvcSvcSntName": "[toUpper(concat(parameters('cloudServiceProvider'),'-',parameters('region'),'-',parameters('enterprise'),'-',parameters('department'),'-',parameters('account'),'-',parameters('cmnSvcName'),'-',parameters('environment'),'-',parameters('impactLevel'),'-SVC-SNT-01'))]",
+    "modulesNative": [
+      {
+        "name": "AuditPolicyDsc",
+        "uri": "https://www.powershellgallery.com/api/v2/package/AuditPolicyDsc/1.1.0.0"
+      },
+      {
+        "name": "Azure",
+        "uri": "https://www.powershellgallery.com/api/v2/package/Azure/5.2.0"
+      },
+      {
+        "name": "Azure.Storage",
+        "uri": "https://www.powershellgallery.com/api/v2/package/Azure.Storage/4.2.1"
+      },
+      {
+        "name": "AzureRM.Automation",
+        "uri": "https://www.powershellgallery.com/api/v2/package/AzureRM.Automation/5.0.0"
+      },
+      {
+        "name": "AzureRM.Compute",
+        "uri": "https://www.powershellgallery.com/api/v2/package/AzureRM.Compute/3.2.1"
+      },
+      {
+        "name": "AzureRM.KeyVault",
+        "uri": "https://www.powershellgallery.com/api/v2/package/AzureRM.KeyVault/3.2.1"
+      },
+      {
+        "name": "AzureRM.OperationalInsights",
+        "uri": "https://www.powershellgallery.com/api/v2/package/AzureRM.OperationalInsights/5.0.0"
+      },
+      {
+        "name": "AzureRM.profile",
+        "uri": "https://www.powershellgallery.com/api/v2/package/AzureRM.profile/4.6.0"
+      },
+      {
+        "name": "AzureRM.Resources",
+        "uri": "https://www.powershellgallery.com/api/v2/package/AzureRM.Resources/5.5.2"
+      },
+      {
+        "name": "AzureRM.Sql",
+        "uri": "https://www.powershellgallery.com/api/v2/package/AzureRM.Sql/4.4.1"
+      },
+      {
+        "name": "AzureRM.Storage",
+        "uri": "https://www.powershellgallery.com/api/v2/package/AzureRM.Storage/4.2.3"
+      },
+      {
+        "name": "BAMCIS.Common",
+        "uri": "https://www.powershellgallery.com/api/v2/package/BAMCIS.Common/1.0.1.0"
+      },
+      {
+        "name": "BAMCIS.Logging",
+        "uri": "https://www.powershellgallery.com/api/v2/package/BAMCIS.Logging/1.0.0.2"
+      },
+      {
+        "name": "BAMCIS.Networking",
+        "uri": "https://www.powershellgallery.com/api/v2/package/BAMCIS.Networking/1.0.0.1"
+      },
+      {
+        "name": "cChoco",
+        "uri": "https://www.powershellgallery.com/api/v2/package/cChoco/2.3.1.0"
+      },
+      {
+        "name": "ComputerManagementDsc",
+        "uri": "https://www.powershellgallery.com/api/v2/package/ComputerManagementDsc/5.0.0.0"
+      },
+      {
+        "name": "GPRegistryPolicyParser",
+        "uri": "https://www.powershellgallery.com/api/v2/package/GPRegistryPolicyParser/0.2"
+      },
+      {
+        "name": "HybridRunbookWorkerDsc",
+        "uri": "https://www.powershellgallery.com/api/v2/package/HybridRunbookWorkerDsc/1.0.0.2"
+      },
+      {
+        "name": "Microsoft.PowerShell.Core",
+        "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.PowerShell.Core/0.0"
+      },
+      {
+        "name": "Microsoft.PowerShell.Diagnostics",
+        "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.PowerShell.Diagnostics/"
+      },
+      {
+        "name": "Microsoft.PowerShell.Management",
+        "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.PowerShell.Management/"
+      },
+      {
+        "name": "Microsoft.PowerShell.Security",
+        "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.PowerShell.Security/"
+      },
+      {
+        "name": "Microsoft.PowerShell.Utility",
+        "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.PowerShell.Utility/"
+      },
+      {
+        "name": "Microsoft.WSMan.Management",
+        "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.WSMan.Management/"
+      },
+      {
+        "name": "NetAdapter",
+        "uri": "https://www.powershellgallery.com/api/v2/package/NetAdapter/2.0.0.0"
+      },
+      {
+        "name": "NTFSSecurity",
+        "uri": "https://www.powershellgallery.com/api/v2/package/NTFSSecurity/4.2.3"
+      },
+      {
+        "name": "nx",
+        "uri": "https://www.powershellgallery.com/api/v2/package/nx/1.0"
+      },
+      {
+        "name": "Orchestrator.AssetManagement.Cmdlets",
+        "uri": "https://www.powershellgallery.com/api/v2/package/Orchestrator.AssetManagement.Cmdlets/1.0"
+      },
+      {
+        "name": "Orchestrator.SshClient.Cmdlets",
+        "uri": "https://www.powershellgallery.com/api/v2/package/Orchestrator.SshClient.Cmdlets/1.0"
+      },
+      {
+        "name": "PowerShellModule",
+        "uri": "https://www.powershellgallery.com/api/v2/package/PowerShellModule/0.3"
+      },
+      {
+        "name": "PSDscResources",
+        "uri": "https://www.powershellgallery.com/api/v2/package/PSDscResources/2.9.0.0"
+      },
+      {
+        "name": "SecurityPolicyDsc",
+        "uri": "https://www.powershellgallery.com/api/v2/package/SecurityPolicyDsc/2.1.0.0"
+      },
+      {
+        "name": "StateConfigCompositeResources",
+        "uri": "https://www.powershellgallery.com/api/v2/package/StateConfigCompositeResources/1.0"
+      },
+      {
+        "name": "WindowsDefender",
+        "uri": "https://www.powershellgallery.com/api/v2/package/WindowsDefender/1.0.0.4"
+      },
+      {
+        "name": "xActiveDirectory",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xActiveDirectory/2.16.0.0"
+      },
+      {
+        "name": "xComputerManagement",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xComputerManagement/4.1.0.0"
+      },
+      {
+        "name": "xDisk",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xDisk/1.0"
+      },
+      {
+        "name": "xDSCDomainjoin",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xDSCDomainjoin/1.1"
+      },
+      {
+        "name": "xNetworking",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xNetworking/5.1.0.0"
+      },
+      {
+        "name": "xPendingReboot",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xPendingReboot/0.4.0.0"
+      },
+      {
+        "name": "xPowerShellExecutionPolicy",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xPowerShellExecutionPolicy/1.1.0.0"
+      },
+      {
+        "name": "xPSDesiredStateConfiguration",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xPSDesiredStateConfiguration/8.0.0.0"
+      },
+      {
+        "name": "xRemoteDesktopAdmin",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xRemoteDesktopAdmin/1.1.0.0"
+      },
+      {
+        "name": "xStorage",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xStorage/3.2.0.0"
+      },
+      {
+        "name": "xSystemSecurity",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xSystemSecurity/1.3.0.0"
+      },
+      {
+        "name": "xWebAdministration",
+        "uri": "https://www.powershellgallery.com/api/v2/package/xWebAdministration/2.1.0.0"
+      }
+    ],
+    "modulesCustom": [
+      /*{
+        "name": "cAuditPolicy",
+        "uri": "https://www.powershellgallery.com/api/v2/package/cAuditPolicy/1.0"
+      },*/
+      /*{
+        "name": "cDodCertificates",
+        "uri": "https://www.powershellgallery.com/api/v2/package/cDodCertificates/1.0"
+      },
+      {
+        "name": "cFilePermissions",
+        "uri": "https://www.powershellgallery.com/api/v2/package/cFilePermissions/1.0"
+      },
+      {
+        "name": "cHKLMPermissions",
+        "uri": "https://www.powershellgallery.com/api/v2/package/cHKLMPermissions/1.0"
+      },*/
+      /*{
+        "name": "cSecurityPolicy",
+        "uri": "https://www.powershellgallery.com/api/v2/package/cSecurityPolicy/1.0"
+      },
+      {
+        "name": "cWindowsFeatures",
+        "uri": "https://www.powershellgallery.com/api/v2/package/cWindowsFeatures/1.0"
+      },*/
+      /*{
+        "name": "TFSConfiguration",
+        "uri": "https://www.powershellgallery.com/api/v2/package/TFSConfiguration/1.9"
+      },*/
+    ],
+    "smtpInfo": {
+      "smtpServer": "[toUpper(concat('EML1CMNSVC',parameters('environment'),'DE'))]",
+      "smtpPort": 25
+    },
+    "relayInfo": {
+      "apiVersion": "2017-04-01",
+      "namespaceName": "[toUpper(concat(variables('commonNamePrefix'),'SBR-01'))]",
+      "hybridConnectionName": "[toUpper(concat(variables('commonNamePrefix'),'HBC-01'))]",
+      "sbrAuthRuleName": "sbrAccessPolicy",
+      "hbcAuthRuleSenderName": "defaultSender",
+      "hbcAuthRuleListenerName": "defaultListener",
+      "hbcAuthRuleListenerResourceID": "[resourceId('Microsoft.Relay/namespaces/HybridConnections/authorizationRules', toUpper(concat(variables('commonNamePrefix'),'SBR-01')), toUpper(concat(variables('commonNamePrefix'),'HBC-01')), 'defaultListener')]",
+      "userMetadata": "[concat('[{\"key\":\"endpoint\",\"value\":\"', variables('smtpInfo').smtpServer, ':', variables('smtpInfo').smtpPort, '\"}]')]"
+    },
+    "solutions": [
+      "Updates",
+      "Security",
+      "AntiMalware",
+      "AgentHealthAssessment",
+      "SQLAssessment",
+      "ChangeTracking",
+      "AzureActivity",
+      "AzureAutomation",
+      "ADAssessment",
+      "SiteRecovery",
+      "SCOMAssessment",
+      "NetworkMonitoring",
+      "Containers",
+      "AlertManagement",
+      "ADReplication",
+      "CapacityPerformance",
+      "Backup",
+      "DnsAnalytics",
+      "Office365",
+      "ServiceFabric",
+      "VMware"
+    ],
+    "WindowsEventLogs": [
+      "Active Directory Web Services",
+      "AD FS",
+      "AD FS/Admin",
+      "Application",
+      "DFS Replication",
+      "Directory Service",
+      "ForwardedEvents",
+      "HardwareEvents",
+      "Microsoft-IIS-Configuration/Administrative",
+      "Microsoft-IIS-Configuration/Operational",
+      "Microsoft-IIS-Logging/Logs",
+      "Microsoft-Windows-AppLocker/EXE and DLL",
+      "Microsoft-Windows-AppLocker/MSI and Script",
+      "Microsoft-Windows-AppLocker/Packaged app-Deployment",
+      "Microsoft-Windows-AppLocker/Packaged app-Execution",
+      "Microsoft-Windows-DSC/Operational",
+      "Microsoft-Windows-Kernel-Registry/Performance",
+      "Microsoft-Windows-Security-Audit-Configuration-Client/Diagnostic",
+      "Microsoft-Windows-Security-Audit-Configuration-Client/Operational",
+      "Microsoft-Windows-Security-Netlogon/Operational",
+      "Microsoft-Windows-Security-UserConsentVerifier/Audit",
+      "Microsoft-Windows-SMBServer/Security",
+      "Microsoft-Windows-Windows Firewall With Advanced Security/ConnectionSecurity",
+      "Microsoft-Windows-Windows Firewall With Advanced Security/ConnectionSecurityVerbose",
+      "Microsoft-Windows-Windows Firewall With Advanced Security/Firewall",
+      "System"
+    ],
+    "kvtAccessPolicies": [
+      {
+        "tenantId": "[parameters('tenant')]",
+        "objectId": "3a356c50-daa9-430e-8bcd-4ec5ee8a27e2",
+        "permissions": {
+          "keys": [
+            "Get",
+            "List",
+            "Backup"
+          ],
+          "secrets": [
+            "Get",
+            "List",
+            "Backup"
+          ]
+        }
+      }
+    ],
+    "mainParameters": {
+      "cloudServiceProvider": "[parameters('cloudServiceProvider')]",
+      "region": "[parameters('region')]",
+      "enterprise": "[parameters('enterprise')]",
+      "department": "[parameters('department')]",
+      "account": "[parameters('account')]",
+      "functionalArea": "[parameters('functionalArea')]",
+      "application": "[parameters('application')]",
+      "environment": "[parameters('environment')]",
+      "impactLevel": "[parameters('impactLevel')]",
+      "gvResourceGroupName": "[variables('gvResourceGroupName')]",
+      "commonNamePrefix": "[variables('commonNamePrefix')]",
+      "cmnSntId": "[variables('cmnSntId')]",
+      "cmnSvcSvcSntId": "[concat(variables('cmnSvcVntId'),'/subnets/',variables('cmnSvcSvcSntName'))]",
+      "stgNamePrefix": "[toLower(concat(parameters('region'),parameters('application'),parameters('environment'),parameters('impactLevel'),'STG'))]",
+      "aaaName": "[replace(concat(variables('commonNamePrefix'),'AAA-01'),concat('-',parameters('region'),'-'),'-GV-')]",
+      "omsName": "[replace(concat(variables('commonNamePrefix'),'OMS-01'),concat('-',parameters('region'),'-'),'-GV-')]",
+      "omsIdPrefix": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',variables('gvResourceGroupName'),'/providers/')]",
+      "kvtName": "[toUpper(concat(parameters('region'),parameters('application'),parameters('environment'),parameters('impactLevel'),'KVT'))]",
+      "linkedTemplateApiVersion": "2017-05-10",
+      "tags": {
+        "Enterprise": "[parameters('enterprise')]",
+        "Department": "[parameters('department')]",
+        "Account": "[parameters('account')]",
+        "Environment": "[parameters('environment')]",
+        "Functional Area": "[parameters('functionalArea')]",
+        "Application": "[parameters('application')]",
+        "ImpactLevel": "[parameters('impactLevel')]",
+        "Region": "[parameters('region')]"
+      },
+      "gvTags": {
+        "Region": "GV"
+      }
+    }
+  },
+  "resources": [
+    //TEMPLATE AAA usgovvirginia
+    {
+      "condition": "[parameters('deployedResources').aaa]",
+      "apiVersion": "[variables('mainParameters').linkedTemplateApiVersion]",
+      "name": "linkedTemplateAAA",
+      "type": "Microsoft.Resources/deployments",
+      "resourceGroup": "[variables('mainParameters').gvResourceGroupName]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.1",
+          "resources": [
+            //AAA
+            {
+              "name": "[variables('mainParameters').aaaName]",
+              "type": "Microsoft.Automation/automationAccounts",
+              "location": "[parameters('aaaLocation')]",
+              "apiVersion": "2015-10-31",
+              "tags": "[union(variables('mainParameters').tags,variables('mainParameters').gvTags)]",
+              "properties": {
+                "sku": {
+                  "name": "[parameters('aaaSku')]"
+                }
+              },
+              "resources": [
+                {
+                  "condition": "[parameters('deployedResources').locks]",
+                  "name": "[concat('Microsoft.Authorization/',variables('mainParameters').aaaName,'-LOCK')]",
+                  "type": "providers/locks",
+                  "apiVersion": "2016-09-01",
+                  "dependsOn": [
+                    "[variables('mainParameters').aaaName]"
+                  ],
+                  "properties": {
+                    "level": "CanNotDelete"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    //TEMPLATE MOD usgovvirginia
+    /*{
+      "condition": "[parameters('deployedResources').mod]",
+      "name": "linkedTemplateMOD",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[variables('mainParameters').linkedTemplateApiVersion]",
+      "resourceGroup": "[variables('mainParameters').gvResourceGroupName]",
+      "dependsOn": [
+        "linkedTemplateAAA"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.1",
+          "resources": [
+            //MOD
+            {
+              "name": "[concat(variables('mainParameters').aaaName,'/',variables('modulesNative')[copyIndex()].name)]",
+              "type": "Microsoft.Automation/automationAccounts/modules",
+              "location": "[parameters('aaaLocation')]",
+              "apiVersion": "2015-10-31",
+              "tags": "[union(variables('mainParameters').tags,variables('mainParameters').gvTags)]",
+              "dependsOn": [],
+              "copy": {
+                "name": "modLoop",
+                "count": "[length(variables('modulesNative'))]"
+              },
+              "properties": {
+                "contentLink": {
+                  "uri": "[variables('modulesNative')[copyIndex()].uri]"
+                }
+              },
+              "resources": []
+            }
+          ]
+        }
+      }
+    },*/
+    //KVT
+    {
+      "condition": "[parameters('deployedResources').kvt]",
+      "name": "[variables('mainParameters').kvtName]",
+      "type": "Microsoft.KeyVault/vaults",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-01",
+      "tags": "[variables('mainParameters').tags]",
+      "dependsOn": [],
+      "properties": {
+        "enabledForDeployment": "[parameters('kvtEnabledForDeployment')]",
+        "enabledForTemplateDeployment": "[parameters('kvtEnabledForTemplateDeployment')]",
+        "enabledForDiskEncryption": "[parameters('kvtEnabledForDiskEncryption')]",
+        "tenantId": "[parameters('tenant')]",
+        "sku": {
+          "family": "[parameters('kvtSkuFamily')]",
+          "name": "[parameters('kvtSkuName')]"
+        },
+        "accessPolicies": "[parameters('kvtAccessPolicies')]"
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('mainParameters').kvtName,'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[variables('mainParameters').kvtName]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //TEMPLATE OMS usgovvirginia
+    {
+      "condition": "[parameters('deployedResources').oms]",
+      "name": "linkedTemplateOMS",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[variables('mainParameters').linkedTemplateApiVersion]",
+      "resourceGroup": "[variables('mainParameters').gvResourceGroupName]",
+      "dependsOn": [
+        "linkedTemplateAAA"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.1",
+          "resources": [
+            //OMS
+            {
+              "name": "[variables('mainParameters').omsName]",
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2015-11-01-preview",
+              "location": "[parameters('omsLocation')]",
+              "tags": "[union(variables('mainParameters').tags,variables('mainParameters').gvTags)]",
+              "dependsOn": [],
+              "properties": {
+                "sku": {
+                  "name": "[parameters('omsSku')]"
+                },
+                "retention": "[parameters('omsDataRetention')]"
+              },
+              "resources": [
+                {
+                  "condition": "[parameters('deployedResources').locks]",
+                  "name": "[concat('Microsoft.Authorization/',variables('mainParameters').omsName,'-LOCK')]",
+                  "type": "providers/locks",
+                  "apiVersion": "2016-09-01",
+                  "dependsOn": [
+                    "[variables('mainParameters').omsName]"
+                  ],
+                  "properties": {
+                    "level": "CanNotDelete"
+                  }
+                },
+                {
+                  "condition": "[parameters('deployedResources').omsLinkedServices]",
+                  "name": "Automation",
+                  "type": "linkedservices",
+                  "apiVersion": "2015-11-01-preview",
+                  "tags": {},
+                  "dependsOn": [
+                    "[variables('mainParameters').omsName]"
+                  ],
+                  "properties": {
+                    "resourceId": "[resourceId(variables('mainParameters').gvResourceGroupName,'Microsoft.Automation/automationAccounts',variables('mainParameters').aaaName)]"
+                  }
+                },
+                {
+                  "condition": "[parameters('deployedResources').omsDataSources]",
+                  "name": "AzureActivityLog",
+                  "type": "datasources",
+                  "apiVersion": "2015-11-01-preview",
+                  "dependsOn": [
+                    "[variables('mainParameters').omsName]"
+                  ],
+                  "kind": "AzureActivityLog",
+                  "properties": {
+                    "linkedResourceId": "[concat(subscription().id, '/providers/Microsoft.Insights/eventTypes/management')]"
+                  }
+                },
+                {
+                  "condition": "[parameters('deployedResources').omsDataSources]",
+                  "name": "IISLog",
+                  "type": "datasources",
+                  "apiVersion": "2015-11-01-preview",
+                  "dependsOn": [
+                    "[variables('mainParameters').omsName]"
+                  ],
+                  "kind": "IISLogs",
+                  "properties": {
+                    "state": "OnPremiseEnabled"
+                  }
+                },
+                {
+                  "condition": "[parameters('deployedResources').omsDataSources]",
+                  "name": "Syslog",
+                  "type": "datasources",
+                  "apiVersion": "2015-11-01-preview",
+                  "dependsOn": [
+                    "[variables('mainParameters').omsName]"
+                  ],
+                  "kind": "LinuxSyslog",
+                  "properties": {
+                    "syslogName": "kern",
+                    "syslogSeverities": [
+                      {
+                        "severity": "emerg"
+                      },
+                      {
+                        "severity": "alert"
+                      },
+                      {
+                        "severity": "crit"
+                      },
+                      {
+                        "severity": "err"
+                      },
+                      {
+                        "severity": "warning"
+                      }
+                    ]
+                  }
+                },
+                /*{
+                  "condition": "[parameters('deployedResources').omsDataSources]",
+                  "name": "WindowsEventLogs",
+                  "type": "datasources",
+                  "apiVersion": "2015-11-01-preview",
+                  "dependsOn": [
+                    "[variables('mainParameters').omsName]"
+                  ],
+                  "kind": "WindowsEvent",
+                  "properties": {
+                    "eventLogName": "[variables('WindowsEventLogs')]",
+                    "eventTypes": [
+                      {
+                        "eventType": "Error"
+                      },
+                      {
+                        "eventType": "Warning"
+                      },
+                      {
+                        "eventType": "Information"
+                      }
+                    ]
+                  }
+                },*/
+                {
+                  "condition": "[parameters('deployedResources').omsDataSources]",
+                  "name": "SyslogCollection",
+                  "type": "datasources",
+                  "apiVersion": "2015-11-01-preview",
+                  "dependsOn": [
+                    "[variables('mainParameters').omsName]"
+                  ],
+                  "kind": "LinuxSyslogCollection",
+                  "properties": {
+                    "state": "Enabled"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    //TEMPLATE OMS Solutions usgovvirginia
+    {
+      "condition": "[parameters('deployedResources').sol]",
+      "name": "[concat('linkedTemplateOMS-',variables('solutions')[copyIndex()])]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "[variables('mainParameters').linkedTemplateApiVersion]",
+      "resourceGroup": "[variables('mainParameters').gvResourceGroupName]",
+      "dependsOn": [
+        "linkedTemplateOMS"
+      ],
+      "copy": {
+        "name": "omsSolutionLoop",
+        "count": "[length(variables('solutions'))]"
+      },
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.1",
+          "resources": [
+            //SOL
+            {
+              "name": "[concat(variables('solutions')[copyIndex()],'(',variables('mainParameters').omsName,')')]",
+              "type": "Microsoft.OperationsManagement/solutions",
+              "location": "[parameters('omsLocation')]",
+              "apiVersion": "2015-11-01-preview",
+              "tags": "[union(variables('mainParameters').tags,variables('mainParameters').gvTags)]",
+              "id": "[concat(variables('mainParameters').omsIdPrefix,'Microsoft.OperationsManagement/solutions/',variables('solutions')[copyIndex()],'(',variables('mainParameters').omsName,')')]",
+              "dependsOn": [],
+              "properties": {
+                "workspaceResourceId": "[concat(variables('mainParameters').omsIdPrefix,'Microsoft.OperationalInsights/workspaces/',variables('mainParameters').omsName)]"
+              },
+              "plan": {
+                "name": "[concat(variables('solutions')[copyIndex()],'(',variables('mainParameters').omsName,')')]",
+                "product": "[concat('OMSGallery/', variables('solutions')[copyIndex()])]",
+                "promotionCode": "",
+                "publisher": "Microsoft"
+              }
+            }
+          ]
+        }
+      }
+    },
+    //SBR
+    {
+      "condition": "[parameters('deployedResources').smtp]",
+      "name": "[variables('relayInfo').namespaceName]",
+      "type": "Microsoft.Relay/namespaces",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[variables('relayInfo').apiVersion]",
+      "tags": "[variables('mainParameters').tags]",
+      "dependsOn": [],
+      "sku": {
+        "name": "Standard",
+        "tier": "Standard"
+      },
+      "scale": null,
+      "properties": {
+        "serviceBusEndpoint": "[concat('https://',variables('relayInfo').namespaceName,'.servicebus.usgovcloudapi.net:443/')]"
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('relayInfo').namespaceName,'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[variables('relayInfo').namespaceName]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        },
+        {
+          "condition": "[parameters('deployedResources').smtp]",
+          "name": "[variables('relayInfo').sbrAuthRuleName]",
+          "type": "AuthorizationRules",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "[variables('relayInfo').apiVersion]",
+          "dependsOn": [
+            "[variables('relayInfo').namespaceName]"
+          ],
+          "scale": null,
+          "properties": {
+            "rights": [
+              "Listen",
+              "Manage",
+              "Send"
+            ]
+          }
+        },
+        {
+          "condition": "[parameters('deployedResources').smtp]",
+          "name": "[variables('relayInfo').hybridConnectionName]",
+          "type": "hybridConnections",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "[variables('relayInfo').apiVersion]",
+          "dependsOn": [
+            "[variables('relayInfo').namespaceName]"
+          ],
+          "scale": null,
+          "properties": {
+            "requiresClientAuthorization": false,
+            "userMetadata": "[variables('relayInfo').userMetadata]"
+          },
+          "resources": [
+            {
+              "condition": "[parameters('deployedResources').smtp]",
+              "name": "[variables('relayInfo').hbcAuthRuleSenderName]",
+              "type": "authorizationRules",
+              "location": "[resourceGroup().location]",
+              "apiVersion": "[variables('relayInfo').apiVersion]",
+              "dependsOn": [
+                "[variables('relayInfo').hybridConnectionName]"
+              ],
+              "scale": null,
+              "properties": {
+                "rights": [
+                  "Send"
+                ]
+              }
+            },
+            {
+              "condition": "[parameters('deployedResources').smtp]",
+              "name": "[variables('relayInfo').hbcAuthRuleListenerName]",
+              "type": "authorizationRules",
+              "location": "[resourceGroup().location]",
+              "apiVersion": "[variables('relayInfo').apiVersion]",
+              "dependsOn": [
+                "[variables('relayInfo').hybridConnectionName]"
+              ],
+              "scale": null,
+              "properties": {
+                "rights": [
+                  "Listen"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    //STG TEMPLATES-DSC-SCRIPTS
+    {
+      "condition": "[parameters('deployedResources').stg]",
+      "name": "[variables('mainParameters').stgNamePrefix]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2018-07-01",
+      "tags": "[variables('mainParameters').tags]",
+      "sku": {
+        "name": "[parameters('stgType')]"
+      },
+      "kind": "Storage",
+      "properties": {
+        "encryption": {
+          "services": {
+            "blob": {
+              "enabled": true
+            },
+            "file": {
+              "enabled": true
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        },
+        "supportsHttpsTrafficOnly": true,
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Deny",
+          "copy": [
+            {
+              "name": "ipRules",
+              "count": "[length(parameters('stgAllowedIPs'))]",
+              "input": {
+                "action": "Allow",
+                "value": "[parameters('stgAllowedIPs')[copyIndex('ipRules')]]"
+              }
+            }
+          ],
+          "virtualNetworkRules": [
+            {
+              "action": "Allow",
+              "id": "[variables('mainParameters').cmnSntId]"
+            },
+            {
+              "action": "Allow",
+              "id": "[variables('mainParameters').cmnSvcSvcSntId]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('mainParameters').stgNamePrefix,'-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[variables('mainParameters').stgNamePrefix]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        },
+        {
+          "name": "[concat('default/','templates')]",
+          "type": "blobServices/containers",
+          "apiVersion": "2018-07-01",
+          "dependsOn": [
+            "[variables('mainParameters').stgNamePrefix]"
+          ]
+        },
+        {
+          "name": "[concat('default/','dsc')]",
+          "type": "blobServices/containers",
+          "apiVersion": "2018-07-01",
+          "dependsOn": [
+            "[variables('mainParameters').stgNamePrefix]"
+          ]
+        },
+        {
+          "name": "[concat('default/','scripts')]",
+          "type": "blobServices/containers",
+          "apiVersion": "2018-07-01",
+          "dependsOn": [
+            "[variables('mainParameters').stgNamePrefix]"
+          ]
+        }
+      ]
+    },
+    //RCV
+    {
+      "condition": "[parameters('deployedResources').rcv]",
+      "name": "[concat(variables('mainParameters').commonNamePrefix,'RCV-01')]",
+      "type": "Microsoft.RecoveryServices/vaults",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-06-01",
+      "tags": "[variables('mainParameters').tags]",
+      "sku": {
+        "name": "RS0",
+        "tier": "[parameters('rcvSkuTier')]"
+      },
+      "properties": {},
+      "resources": [
+        {
+          "condition": "[parameters('deployedResources').locks]",
+          "name": "[concat('Microsoft.Authorization/',variables('mainParameters').commonNamePrefix,'RCV-01','-LOCK')]",
+          "type": "providers/locks",
+          "apiVersion": "2016-09-01",
+          "dependsOn": [
+            "[concat(variables('mainParameters').commonNamePrefix,'RCV-01')]"
+          ],
+          "properties": {
+            "level": "CanNotDelete"
+          }
+        }
+      ]
+    },
+    //BKP
+    {
+      "condition": "[parameters('deployedResources').bkp]",
+      "name": "[concat(variables('mainParameters').commonNamePrefix,'RCV-01','/',variables('mainParameters').commonNamePrefix,parameters('bkpInfo')[copyIndex()].name,'-BKP-01')]",
+      "type": "Microsoft.RecoveryServices/vaults/backupPolicies",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-06-01",
+      "copy": {
+        "name": "bkpLoop",
+        "count": "[length(parameters('bkpInfo'))]"
+      },
+      "dependsOn": [
+        "[concat(variables('mainParameters').commonNamePrefix,'RCV-01')]"
+      ],
+      "tags": "[variables('mainParameters').tags]",
+      "properties": {
+        "backupManagementType": "AzureIaasVM",
+        "schedulePolicy": {
+          "scheduleRunFrequency": "[parameters('bkpInfo')[copyIndex()].scheduleRunFrequency]",
+          "scheduleRunDays": "[parameters('bkpInfo')[copyIndex()].scheduleRunDays]",
+          "scheduleRunTimes": "[parameters('bkpInfo')[copyIndex()].scheduleRunTimes]",
+          "schedulePolicyType": "SimpleSchedulePolicy"
+        },
+        "retentionPolicy": {
+          "dailySchedule": null,
+          "weeklySchedule": {
+            "daysOfTheWeek": "[parameters('bkpInfo')[copyIndex()].scheduleRunDays]",
+            "retentionTimes": "[parameters('bkpInfo')[copyIndex()].scheduleRunTimes]",
+            "retentionDuration": {
+              "count": "[parameters('bkpInfo')[copyIndex()].weeklyRetentionDurationCount]",
+              "durationType": "Weeks"
+            }
+          },
+          "monthlySchedule": {
+            "retentionScheduleFormatType": "Weekly",
+            "retentionScheduleDaily": {
+              "daysOfTheMonth": [
+                {
+                  "date": 1,
+                  "isLast": false
+                }
+              ]
+            },
+            "retentionScheduleWeekly": {
+              "daysOfTheWeek": "[parameters('bkpInfo')[copyIndex()].daysOfTheWeekForMontlyRetention]",
+              "weeksOfTheMonth": "[parameters('bkpInfo')[copyIndex()].weeksOfTheMonthForMonthlyRetention]"
+            },
+            "retentionTimes": "[parameters('bkpInfo')[copyIndex()].scheduleRunTimes]",
+            "retentionDuration": {
+              "count": "[parameters('bkpInfo')[copyIndex()].monthlyRetentionDurationCount]",
+              "durationType": "Months"
+            }
+          },
+          "yearlySchedule": {
+            "retentionScheduleFormatType": "Weekly",
+            "monthsOfYear": "[parameters('bkpInfo')[copyIndex()].monthsOfYear]",
+            "retentionScheduleDaily": {
+              "daysOfTheMonth": [
+                {
+                  "date": 1,
+                  "isLast": false
+                }
+              ]
+            },
+            "retentionScheduleWeekly": {
+              "daysOfTheWeek": "[parameters('bkpInfo')[copyIndex()].daysOfTheWeekForYearlyRetention]",
+              "weeksOfTheMonth": "[parameters('bkpInfo')[copyIndex()].weeksOfTheMonthForYearlyRetention]"
+            },
+            "retentionTimes": "[parameters('bkpInfo')[copyIndex()].scheduleRunTimes]",
+            "retentionDuration": {
+              "count": "[parameters('bkpInfo')[copyIndex()].yearlyRetentionDurationCount]",
+              "durationType": "Years"
+            }
+          },
+          "retentionPolicyType": "LongTermRetentionPolicy"
+        },
+        "timeZone": "[parameters('bkpInfo')[copyIndex()].timeZone]"
+      }
+    }
+  ],
+  "outputs": {}
+}

@@ -1,0 +1,107 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "stgType": {
+      "value": "Standard_RAGRS"
+    },
+    "stgAllowedIPs": {
+      "value": [
+        "13.72.0.0/16",
+        "52.247.0.0/16",
+        "52.227.0.0/16",
+        "100.76.0.0/16"
+      ]
+    },
+    "aaaSku": {
+      "value": "Basic"
+    },
+    "aaaModules": {
+      "value": [
+        "Azure",
+        "AzureRM.Sql",
+        "Azure.Storage",
+        "AzureRM.Compute",
+        "AzureRM.Profile",
+        "AzureRM.Storage",
+        "AzureRM.Resources",
+        "AzureRM.Automation",
+        "Microsoft.PowerShell.Core",
+        "Microsoft.WSMan.Management",
+        "Microsoft.PowerShell.Utility",
+        "Microsoft.PowerShell.Security",
+        "Orchestrator.SshClient.Cmdlets",
+        "Microsoft.PowerShell.Management",
+        "Microsoft.PowerShell.Diagnostics",
+        "Orchestrator.AssetManagement.Cmdlets"
+      ]
+    },
+    "kvtEnabledForDeployment": {
+      "value": true
+    },
+    "kvtEnabledForTemplateDeployment": {
+      "value": true
+    },
+    "kvtEnabledForDiskEncryption": {
+      "value": true
+    },
+    "kvtSkuFamily": {
+      "value": "A"
+    },
+    "kvtSkuName": {
+      "value": "Premium"
+    },
+    "bkpInfo": {
+      "value": [
+        {
+          "name": "BST",
+          "scheduleRunFrequency": "Weekly",
+          "scheduleRunDays": [ "Monday", "Wednesday", "Friday" ],
+          "scheduleRunTimes": [ "2018-01-31T23:00:00Z" ],
+          "timeZone": "Eastern Standard Time",
+          "dailyRetentionDurationCount": null,
+          "weeklyRetentionDurationCount": 26,
+          "monthlyRetentionDurationCount": 12,
+          "yearlyRetentionDurationCount": 3,
+          "daysOfTheWeekForMontlyRetention": [ "Monday" ],
+          "daysOfTheWeekForYearlyRetention": [ "Monday" ],
+          "weeksOfTheMonthForMonthlyRetention": [ "First" ],
+          "weeksOfTheMonthForYearlyRetention": [ "First" ],
+          "monthsOfYear": [ "January" ]
+        },
+        {
+          "name": "TFA",
+          "scheduleRunFrequency": "Weekly",
+          "scheduleRunDays": [ "Sunday", "Tuesday", "Thursday" ],
+          "scheduleRunTimes": [ "2018-01-31T22:00:00Z" ],
+          "timeZone": "Eastern Standard Time",
+          "dailyRetentionDurationCount": null,
+          "weeklyRetentionDurationCount": 26,
+          "monthlyRetentionDurationCount": 12,
+          "yearlyRetentionDurationCount": 3,
+          "daysOfTheWeekForMontlyRetention": [ "Sunday" ],
+          "daysOfTheWeekForYearlyRetention": [ "Sunday" ],
+          "weeksOfTheMonthForMonthlyRetention": [ "First" ],
+          "weeksOfTheMonthForYearlyRetention": [ "First" ],
+          "monthsOfYear": [ "January" ]
+        }
+      ]
+    },
+    "deployedResources": {
+      "value": {
+        "locks": false,
+        "aaa": true,
+        "mod": true,
+        "kvt": true,
+        "oms": true,
+        "omsDataSources": true,
+        "omsLinkedservices": true,
+        "smtp": true,
+        "sol": true,
+        "stg": true,
+        "rcv": true,
+        "bkp": true
+      }
+    }
+  }
+}
