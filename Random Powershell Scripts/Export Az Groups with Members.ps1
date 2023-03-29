@@ -1,4 +1,4 @@
-#Stole this from Stack Overflow and made modifications to fit the request for exporting excel doc that contains AAD Groups and Members. Run on the Cloud Shell. 
+# Oneoff request to export AAD Groups and Users to CSV. 
 
 Connect-AzureAD
 $groups=Get-AzureADGroup -All $true
