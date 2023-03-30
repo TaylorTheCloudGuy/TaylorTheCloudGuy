@@ -18,9 +18,9 @@
 .PARAMETER OMSLocation
 	Default to usgovvirginia
 .PARAMETER Enterprise
-	Default to DoD
+	Default to
 .PARAMETER Department
-	Default to AF
+	Default to 
 .PARAMETER Account
 	If deploying in a lab environment for integration
 .PARAMETER Environment
@@ -83,7 +83,7 @@ Param(
     [ValidateSet("")]
     [string] $Enterprise = "",
     [ValidateSet("")]
-    [string] $Department = "AF",
+    [string] $Department = "",
     [string]
     [ValidateSet("CIE", "")]
     $Account = "",
